@@ -5,7 +5,7 @@ This library of Python modules was intended to provide utilities that could be u
 
 # Linking and Updating
 ## adding to local repository
-% git submodule add git@lex-gitlab.aer.com:rpernak/common_modules.git externals/common
+% git submodule add git@lex-gitlab.aer.com:RC/common_modules.git externals/common
 
 % git submodule update --init --recursive
 
