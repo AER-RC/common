@@ -29,54 +29,72 @@ WAVE_NUMBER = 'waveNumber'
 SOLAR_OPTICAL_DEPTH = 'solarOD'
 SOLAR_RADIANCE = 'solarRadiance'
 
-def interP(
-    p,
-    pin,
-    vin,
-    debug=False,
-    rh=None,
-    ):
-    z = []
-    for p1 in p:
-        mmin = [-999999, p1]
-        mmax = [999999, p1]
-        cont = 0
-        for k in range(len(pin)):
-            if p1 != pin[k]:
-                gg = pin[k] - p1
-                if gg > 0 and gg < mmax[0]:
-                    mmax = [gg, pin[k], k]
-                elif gg < 0 and gg > mmin[0]:
-                    mmin = [gg, pin[k], k]
-            if p1 == pin[k]:
-                z.append(vin[k])
-                cont = 1
-                break
-        if cont:
-            continue
-        if mmax[1] == p1:
-            mmax = [-999999, p1]
-            for k in range(len(pin)):
-                if p1 != pin[k] and k != mmin[2]:
-                    gg = pin[k] - p1
-                    if gg < 0 and gg > mmax[0]:
-                        mmax = [gg, pin[k], k]
-        if mmin[1] == p1:
-            mmin = [999999, p1]
-            for k in range(len(pin)):
-                if p1 != pin[k] and k != mmax[2]:
-                    gg = pin[k] - p1
-                    if gg > 0 and gg < mmin[0]:
-                        mmin = [gg, pin[k], k]
-        z1 = math.log(p1) - math.log(mmin[1])
-        z2 = math.log(mmax[1]) - math.log(mmin[1])
-        z3 = vin[mmax[2]] - vin[mmin[2]]
-        z4 = vin[mmin[2]]
-        hh = z4 + z1 / z2 * z3
-        if (rh is not None) and (p1 < 100) and (hh > 0.003):
-            hh = 0.001
-        z.append(hh)
-    return z
+def interP(p, pin, vin, debug=False, rh=None):
+  """
+  Interpolate pressure grid
+
+  Input
+    p -- float array
+    pin -- float array
+    vin -- float arr
+
+  Output
+    z -- float array
+  """
+
+  z = []
+  for p1 in p:
+    mmin = [-999999, p1]
+    mmax = [999999, p1]
+    cont = 0
+    for k in range(len(pin)):
+        if p1 != pin[k]:
+            gg = pin[k] - p1
+            if gg > 0 and gg < mmax[0]:
+                mmax = [gg, pin[k], k]
+            elif gg < 0 and gg > mmin[0]:
+                mmin = [gg, pin[k], k]
+        # endif p1 !=
+
+        if p1 == pin[k]:
+            z.append(vin[k])
+            cont = 1
+            break
+        # endif p1 ==
+
+    if cont: continue
+
+    if mmax[1] == p1:
+      mmax = [-999999, p1]
+      for k in range(len(pin)):
+        if p1 != pin[k] and k != mmin[2]:
+          gg = pin[k] - p1
+          if gg < 0 and gg > mmax[0]: mmax = [gg, pin[k], k]
+        # endif p1 and k
+    # endif mmax[1]
+
+    if mmin[1] == p1: mmin = [999999, p1]
+
+    for k in range(len(pin)):
+      if p1 != pin[k] and k != mmax[2]:
+        gg = pin[k] - p1
+        if gg > 0 and gg < mmin[0]: mmin = [gg, pin[k], k]
+      # end if p1 and k
+    # endif mmin[1]
+
+    z1 = math.log(p1) - math.log(mmin[1])
+    z2 = math.log(mmax[1]) - math.log(mmin[1])
+    z3 = vin[mmax[2]] - vin[mmin[2]]
+    z4 = vin[mmin[2]]
+    hh = z4 + z1 / z2 * z3
+
+    if (rh is not None) and (p1 < 100) and (hh > 0.003): hh = 0.001
+
+    z.append(hh)
+  # end p loop
+
+  return z
+# end interP()
 
 def readOD(path, fout=sys.stdout, double=False):
     ll = glob.glob(os.path.join(path, 'ODint_*'))
@@ -186,78 +204,170 @@ def readTape7(fName, fout=sys.stdout, sList=False):
         ll.append(q)
     return ll
 
-def readTape12(fileName, fout=sys.stdout, double=False):
-    iFormat = 'l'
-    if struct.calcsize('l') == 8:iFormat = 'i'
+def readTape12(fileName, double=False, fType=0):
+  """
+  Read in a TAPE12 (or similar TAPE10-13) LBLRTM output binary file
+  and return spectrum
 
-    # read file header, instantiate FortranFile object
-    fortranFile = FortranFile.FortranFile(fileName)
-    data = fortranFile.getRecord()
+  Original: Scott Zaccheo (AER), modified by Rick Pernak (AER, 2017) 
 
-    # format for each panel header
-    if double: lfmt = 'dddl'
-    else: lfmt = 'ddf%s' % iFormat
+  Call
+    waveNumbers, output = readTape12(fileName)
 
-    # initialization variables that change with binary record
-    OK = True; waveNumbers = []; output = []
+  Input
+    fileName -- string, full path to binary file
 
+  Output
+    waveNumbers -- float array, wavenumbers of spectrum
+    output -- float array, corresponding parameter (radiance, 
+      transmittance, optical depth -- see lblrtm_instructions.html 
+      file assignments)
+
+  Keywords
+    double -- boolean, read in double-precision bits
+    fType -- int, file type; from 
+      /project/rc/rc2/mshep/idl/patbrown/read_lbl_file.pro:
+    
+      0: scanned transmittance or radiance, optical depth
+      1: radiance from monochromatic radiance calculation
+      2: transmittance from monochromatic radiance calculation
+      3: Aerosol absorbtance from spectral aerosol transmittance file
+      4: Aerosol scattering from spectral aerosol transmittance file
+      5: Aerosol asymmetry from spectral aerosol transmittance file
+      6: transmittance from monochromatic radiance calculation
+
+      File types 3, 4, and 5 are from TAPE20 files and have not been 
+      tested with this function
+  """
+
+  def readLBLPanel(ffObj, pHeaderForm):
+    """
+    Read in a single panel
+
+    Input
+      ffObj -- FortranFile object
+      pHeaderForm -- string, format of panel header (e.g., 'dddl' for
+        3 doubles and a long integer, which would mean wn_start and 
+        wn_end are doubles, the spectral resolution is double 
+        precision, and the number of points in the panel is a long 
+        integer; wn_start and wn_end are always doubles)
+
+    Output
+      outWN -- float array, wavenumbers of spectrum for a given panel
+      outParam -- float array, corresponding parameter (radiance, 
+      transmittance, optical depth -- see lblrtm_instructions.html 
+      file assignments) of panel
+    """
+
+    # initialization variables that change with panel
+    OK = True; 
+    outWN = []; outParam = []
     while OK:
+      buff = fortranFile.getRecord()
+
+      # grab binary data if valid buffer and not a panel header
+      while buff is not None and len(buff) != struct.calcsize(lfmt):
         buff = fortranFile.getRecord()
-        # grab binary data if valid buffer and not a panel header
-        while buff is not None and len(buff) != struct.calcsize(lfmt):
-            buff = fortranFile.getRecord()
+      # end while buff
 
-        if buff:
-            try:
-                # read panel header and underlying data
-                (v1, v2, dv, nPanel) = struct.unpack(lfmt, buff)
-                data = fortranFile.readDoubleVector() if double else \
-                  fortranFile.readFloatVector()
+      if buff:
+        try:
+          # read panel header and underlying data
+          (v1, v2, dv, nPanel) = struct.unpack(lfmt, buff)
+          data = fortranFile.readDoubleVector() if double else \
+            fortranFile.readFloatVector()
 
-                # concatenate (NOT append) onto output
-                # for now, this is just radiance -- looks like other
-                # parameters like transmittances are in other panels
-                output += data
+          # concatenate (NOT append) onto output
+          # for now, this is just radiance -- looks like other
+          # parameters like transmittances are in other panels
+          outParam += data
 
-                # concatenate wavenumber array (without numpy) based 
-                # on spectral resolution and starting wavenumber
-                waveNumbers += \
-                  map(lambda x:v1 + x * dv, range(len(data)))
-            except (KeyboardInterrupt, SystemExit):
-                raise
-            except:
-                # perhaps this is where i read in another panel?
-                OK = False
-        else:
-            OK = False
-            
-    return waveNumbers, output
+          # concatenate wavenumber array (without numpy) based 
+          # on spectral resolution and starting wavenumber
+          outWN += \
+            map(lambda x:v1 + x * dv, range(len(data)))
+        except (KeyboardInterrupt, SystemExit):
+          raise
+        except:
+          #print 'Data could not be read, file may be corrupted'
+          OK = False
+      else:
+        # end of panel
+        OK = False
+    # end while OK
+    return outWN, outParam
+  # end readLBLPanel()
+
+  # main readTape12()
+  iFormat = 'l'
+  if struct.calcsize('l') == 8:iFormat = 'i'
+
+  # instantiate FortranFile object
+  fortranFile = FortranFile.FortranFile(fileName)
+
+  # read file header
+  data = fortranFile.getRecord()
+
+  # format for each panel header
+  if double: lfmt = 'dddl'
+  else: lfmt = 'ddf%s' % iFormat
+
+  waveNumbers, output = readLBLPanel(fortranFile, lfmt)
+  #waveNumbers, output = readLBLPanel(fortranFile, lfmt)
+  #waveNumbers, output = readLBLPanel(fortranFile, lfmt)
+
+  return waveNumbers, output
+# end readTape12()
 
 def getOD(tape5, ostream=sys.stdout):
-    path = os.path.dirname(tape5)
-    return readOD(path, fout=ostream)
+  """
+  Read in OD from...TAPE5!?!
+
+  Input
+    tape5 -- string, full path to TAPE5 file
+
+  Output
+    None
+  """
+
+  path = os.path.dirname(tape5)
+  return readOD(path, fout=ostream)
+# end getOD
 
 def removeFileName(fileName):
-    try: os.remove(fileName)
-    except OSError: pass
+  """
+  Remove given file
+
+  Input
+    fileName -- string, full path to file to be removed
+  Output
+    None
+  """
+
+  try: os.remove(fileName)
+  except OSError: pass
+# end removeFileName
 
 def generatePressureGrid(pressure, observer, target, nLayers):
+  try:
     try:
-        try:
-            mn = int(min(pressure))
-            mx = int(max(pressure))
-        except (ValueError,IndexError,TypeError):
-            mn = int(min([observer, target]))
-            mx = int(max([observer, target]))
+      mn = int(min(pressure))
+      mx = int(max(pressure))
+    except (ValueError,IndexError,TypeError):
+      mn = int(min([observer, target]))
+      mx = int(max([observer, target]))
+    # end try
 
-        dx = (mx - mn) / (nLayers - 1)
+    dx = (mx - mn) / (nLayers - 1)
 
-        layers = map(lambda x: mx - x * dx, range(nLayers))
-        return -len(layers), layers
-    except (KeyboardInterrupt, SystemExit):
-        raise
-    except:
-        return 0, 0
+    layers = map(lambda x: mx - x * dx, range(nLayers))
+    return -len(layers), layers
+  except (KeyboardInterrupt, SystemExit):
+    raise
+  except:
+    return 0, 0
+  # end try
+# end generatePressureGrid
 
 def generateHeightGrid(heights, observer, target, nLayers):
     # input heights assumed to be in meters

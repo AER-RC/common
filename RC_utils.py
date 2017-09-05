@@ -116,8 +116,8 @@ def tempIDL(inFile, fType=0, double=True):
   # and is considered, along with the RC_utils.py and utils.py 
   # modules, part of the RC common library
   proFile = 'write_save_file.pro'
-  if not os.path.exists(proFile):
-    os.symlink('externals/common/%s' % proFile, proFile)
+  #if not os.path.exists(proFile):
+  #  os.symlink('externals/common/%s' % proFile, proFile)
 
   if double:
     proCall = \
@@ -136,7 +136,7 @@ def tempIDL(inFile, fType=0, double=True):
   idlDat = readsav(tempSav)
   waveNum, param = idlDat['wavenum'], idlDat['spectrum']
   os.remove(tempSav)
-  os.remove(proFile)
+  #os.remove(proFile)
 
   return {'wavenumber': waveNum, 'spectrum': param}
 # end tempIDL()
