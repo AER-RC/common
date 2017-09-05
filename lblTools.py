@@ -186,41 +186,47 @@ def readTape7(fName, fout=sys.stdout, sList=False):
         ll.append(q)
     return ll
 
-def readTape12(fileName, fout=sys.stdout, double=False, numberOfRecords=1):
+def readTape12(fileName, fout=sys.stdout, double=False):
     iFormat = 'l'
     if struct.calcsize('l') == 8:iFormat = 'i'
 
+    # read file header, instantiate FortranFile object
     fortranFile = FortranFile.FortranFile(fileName)
     data = fortranFile.getRecord()
 
+    # format for each panel header
     if double: lfmt = 'dddl'
     else: lfmt = 'ddf%s' % iFormat
 
-    OK = True
-    waveNumbers = []
-    output = []
+    # initialization variables that change with binary record
+    OK = True; waveNumbers = []; output = []
 
     while OK:
         buff = fortranFile.getRecord()
-        while buff is not None and len(buff) != struct.calcsize(lfmt): buff = fortranFile.getRecord()
-         
+        # grab binary data if valid buffer and not a panel header
+        while buff is not None and len(buff) != struct.calcsize(lfmt):
+            buff = fortranFile.getRecord()
+
         if buff:
             try:
-                if double:
-                    (v1, v2, dv, numP) = struct.unpack(lfmt, buff)
-                    fmt = '%0dd' % numP
-                    data = fortranFile.readDoubleVector()
-                else:
-                    (v1, v2, dv, numP) = struct.unpack(lfmt, buff)
-                    fmt = '%0df' % numP
-                    data = fortranFile.readFloatVector()
+                # read panel header and underlying data
+                (v1, v2, dv, nPanel) = struct.unpack(lfmt, buff)
+                data = fortranFile.readDoubleVector() if double else \
+                  fortranFile.readFloatVector()
 
+                # concatenate (NOT append) onto output
+                # for now, this is just radiance -- looks like other
+                # parameters like transmittances are in other panels
                 output += data
-                waveNumbers += map(lambda x:v1 + x * dv, range(len(data)))
+
+                # concatenate wavenumber array (without numpy) based 
+                # on spectral resolution and starting wavenumber
+                waveNumbers += \
+                  map(lambda x:v1 + x * dv, range(len(data)))
             except (KeyboardInterrupt, SystemExit):
                 raise
             except:
-                # traceback.print_exc(file=fout)
+                # perhaps this is where i read in another panel?
                 OK = False
         else:
             OK = False
