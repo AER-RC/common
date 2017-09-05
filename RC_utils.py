@@ -141,70 +141,6 @@ def tempIDL(inFile, fType=0, double=True):
   return {'wavenumber': waveNum, 'spectrum': param}
 # end tempIDL()
 
-def readTAPE11(inFile, param='Absorption'):
-  """
-  Read in LBLRTM binary absorption/transmittance/reflectance file
-
-  Call
-    outDict = readTAPE11(inFile)
-
-  Input
-    inFile -- string, path to TAPE11 file
-
-  Output
-    outDict -- dictionary with wavenumber, param_vals, and param_name
-      key/value pairs
-
-  Keywords
-    param -- string, should be 'Absorption', 'Reflectance', or 
-      'Transmittance' (case-insensitive)
-  """
-
-  goodParams = ['Absorption', 'Reflectance', 'Transmittance']
-  if param.capitalize() not in goodParams:
-    sys.exit('Please specify TAPE11 param (%s), returning' % goodParams)
-
-  outDict = {'param_name': param}
-
-  return outDict
-# end readTAPE11()
-
-def readTAPE12(inFile, param='OD', panelsize=24):
-  """
-  Read in LBLRTM binary monochromatic OD/radiance file
-
-  Call
-    outDict = readTAPE12(inFile)
-
-  Input
-    inFile -- string, path to TAPE12 file
-
-  Output
-    outDict -- dictionary with wavenumber, param_vals, and param_name
-      key/value pairs
-
-  Keywords
-    param -- string, should be 'OD' or 'Radiance' (case-sensitive)
-  """
-
-  goodParams = ['OD', 'Radiance']
-  if param not in goodParams:
-    sys.exit('Please specify TAPE12 param (%s), returning' % goodParams)
-
-  outDict = {'param_name': param}
-
-  # read in binary spectra
-  with open(inFile, "rb") as f:
-    byte = f.read(panelsize)
-    while byte:
-      byte = f.read(panelsize)
-      print byte
-    # endwhile
-  # endwith
-
-  return outDict
-# end readTAPE12()
-
 def radsumRead(inFile):
   """
   Read a single RADSUM output file and return data for a given level 
@@ -380,5 +316,4 @@ def wvAmtTAPE6(inTAPE6):
 
   return wvLayAmt
 # end wvAmtTAPE6
-
 
