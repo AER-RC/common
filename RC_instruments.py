@@ -113,7 +113,7 @@ def airsSRFInterpOverlap(srfCenter, srfWN, modWN, \
     # endif size
   # end iOver loop
 
-  np.savez('%s' % outNPZ[:-4], 'center'=icOverlap, 'full'=ifOverlap)
+  np.savez('%s' % outNPZ[:-4], center=icOverlap, full=ifOverlap)
 
   return icOverlap, ifOverlap
 # end airsSRFInterpOverlap()
