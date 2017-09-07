@@ -54,8 +54,8 @@ def srfAIRS(fileSRF='/nas/ASR/RC_Release_Benchmark_Tests/AIRS/' + \
 # end srfAIRS()
 
 def airsSRFInterpOverlap(srfCenter, srfWN, modWN, \
-  outNPZ='/nas/ASR/RC_Release_Benchmark_Tests/AIRS/output_files/' + 
-    'AIRS_LBLRTM_Overlap_Idx.npz):
+  outNPZ='/nas/ASR/RC_Release_Benchmark_Tests/AIRS/output_files/' + \
+    'AIRS_LBLRTM_Overlap_Idx.npz'):
   """
   Designed to help save time in interpolateSRF(), which loops over 
   all line centers that are in the LBLRTM spectral range and extracts
@@ -168,7 +168,6 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=None):
     npzDat = np.load(idxNPZ)
     lcOver, fullOver = npzDat['center'], npzDat['full']
   # endif idxNPZ
-  sys.exit('Done finding overlap')
 
   # for each matching center line, zoom in on the center +/- FWHM 
   # region of interest (ROI)
