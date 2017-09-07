@@ -4,11 +4,11 @@ import numpy as np
 import utils
 
 def srfAIRS(fileSRF='/nas/ASR/RC_Release_Benchmark_Tests/AIRS/' + \
-  'data/srftables_051118v4.h5', radiance=False):
+  'data/srftables_051118v4.h5'):
 
   """
-  Read in the AIRS spectral response function from HDF5 file and 
-  return corresponding brightness temperature (or radiance) spectrum
+  Read in and return the AIRS spectral response function from HDF5 
+  file (amongst other parameters -- outDict output)
 
   Input
     None
@@ -23,11 +23,10 @@ def srfAIRS(fileSRF='/nas/ASR/RC_Release_Benchmark_Tests/AIRS/' + \
       center_line -- float array, line centers (cm-1)
 
   Keywords
-    fileSRF -- string, path to static spectral response function 
+    fileSRF -- string, full path to static spectral response function 
       (SRF) HDF5 file. this was converted from HDF4 with h4toh5 
       (https://ftp.hdfgroup.org/h4toh5/download.html)
 
-    radiance -- boolean, return radiance instead of BT spectrum
   """
 
   import h5py
@@ -54,7 +53,72 @@ def srfAIRS(fileSRF='/nas/ASR/RC_Release_Benchmark_Tests/AIRS/' + \
     'center_line': center}
 # end srfAIRS()
 
-def interpolateSRF(inTAPE12, outNPZ='temp.npz'):
+def airsSRFInterpOverlap(srfCenter, srfWN, modWN, \
+  outNPZ='/nas/ASR/RC_Release_Benchmark_Tests/AIRS/output_files/' + 
+    'AIRS_LBLRTM_Overlap_Idx.npz):
+  """
+  Designed to help save time in interpolateSRF(), which loops over 
+  all line centers that are in the LBLRTM spectral range and extracts
+  indices of points in the line center +/- FWHM range. These should 
+  stay constant with LBLRTM and Line File releases, because the AIRS 
+  SRF does not change and we should be keeping the same spectral 
+  ranges and resolutions with LBLRTM runs that are done in 
+  benchmark_tests.py
+
+  Input
+    srfCenter -- vector array, 1 x nWavenumbers array of line centers
+      for Spectral Response Function (SRF)
+    srfWN -- array, nFWHM x nWavenumbers complete wavenumber array 
+      for SRF (i.e., not just line centers)
+    modWN -- vector array, 1 x nWNLBL of wavenumbers in 
+      LBLRTM spectrum
+
+  Output
+    overlapIdx -- array list where each element is a list of indices 
+      for a given line center (in the LBLRTM spectral range) that 
+      falls in the line center +/- FWHM range. lists do not 
+      necessarily contain the same amount of elements
+
+  Keywords
+    outNPZ -- string, full path to compressed NumPy file in which 
+      overlapIdx is saved
+  """
+
+  # what part of AIRS spectrum (line centers) is contained by 
+  # the LBL spectrum? --> indices for center overlap
+  icOverlap = np.where(\
+    (srfCenter >= modWN.min()) & (inCenter <= modWN.max()))[0]
+
+  # for each matching center line, zoom in on the center +/- FWHM 
+  # region of interest (ROI)
+  # pretty time consuming...
+  # indices for full overlap
+  ifOverlap = []
+  for i, iOverLBL in enumerate(icOverlap):
+    print '%d of %d' % (i, icOverlap.size)
+    wnOver = srfWN[iOver, :]
+
+    # grab LBL spectral points in the ROI
+    # this is the time hog, and neither method is faster
+    #iLo = lblWN >= wnOver.min()
+    #iHi = lblWN <= wnOver.max()
+    #iOverLBL = iLo & iHi
+    iOverLBL = \
+      np.where((modWN >= wnOver[0]) & (modWN <= wnOver[-1]))[0]
+
+    if iOverLBL.size == 0:
+      ifOverlap.append(np.array([np.nan]))
+    else:
+      ifOverlap.append(iOverLBL)
+    # endif size
+  # end iOver loop
+
+  np.savez('%s' % outNPZ[:-4], 'center'=icOverlap, 'full'=ifOverlap)
+
+  return icOverlap, ifOverlap
+# end airsSRFInterpOverlap()
+
+def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=None):
   """
   Interpolate the AIRS spectral response function onto the grid given 
   by an LBLRTM TAPE12 spectrum. Right now this is a very time 
@@ -77,15 +141,17 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz'):
 
   Keywords
     outNPZ -- string, full path to file in which the output paramters 
-      are saved for later usage
+      are saved for later usage (compressed NumPy (.npy) file)
+    idxNPZ -- string, .npz file generated with airsSRFInterpOverlap() 
+      to save time. By default, this is not provided and 
+      airsSRFInterpOverlap() is run
   """
 
   # also should be in same directory as this module
-  import RC_instruments as RCI
   import RC_utils as RC
 
   print 'Reading in AIRS SRF'
-  airsDict = RCI.srfAIRS()
+  airsDict = srfAIRS()
   airsWN = airsDict['wavenumber']
   airsCenter = airsDict['center_line'][:, 0]
   airsSRF = airsDict['SRF']
@@ -93,27 +159,31 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz'):
   print 'Reading in AIRS LBLRTM TAPE12'
   lblWN, lblSpec = RC.readBinary(inTAPE12, double=True)
 
-  # what part of AIRS spectrum is contained by LBL spectrum?
-  iOverlap = np.where(\
-    (airsCenter >= lblWN.min()) & (airsCenter <= lblWN.max()))[0]
+  if idxNPZ is None:
+    # find line center overlap
+    print 'Indice file not found, running airsSRFInterpOverlap()'
+    lcOver, fullOver = airsSRFInterpOverlap(airsCenter, airsWN, lblWN)
+  else:
+    # grab line center overlap
+    npzDat = np.load(idxNPZ)
+    lcOver, fullOver = npzDat['center'], npzDat['full']
+  # endif idxNPZ
+  sys.exit('Done finding overlap')
 
   # for each matching center line, zoom in on the center +/- FWHM 
   # region of interest (ROI)
   # pretty time consuming...
   outRad = []
-  for i, iOver in enumerate(iOverlap):
-    print '%d of %d' % (i, iOverlap.size)
+  for i, iOver in enumerate(lcOver):
+    print '%d of %d' % (i, lcOver.size)
     wnOver = airsWN[iOver, :]
     srfOver = airsSRF[iOver, :]
 
-    # grab LBL spectral points in the ROI
-    # this is the time hog, and neither method is faster
-    iLo = lblWN >= wnOver.min()
-    iHi = lblWN <= wnOver.max()
-    iOverLBL = iLo & iHi
-    #iOverLBL = np.where((lblWN >= wnOver[0]) & (lblWN <= wnOver[-1]))[0]
-    #if iOverLBL.size == 0: continue
-    if lblWN[iOverLBL].size == 0: continue
+    iOverLBL = fullOver[i]
+    if np.isnan(iOverLBL).all(): 
+      outRad.append(np.nan)
+      continue
+    # endif NaN check
 
     # fit a quadratic to the AIRS spectrum, then solve equation with 
     # LBL spectral points (i.e., interpolate onto LBL grid)
