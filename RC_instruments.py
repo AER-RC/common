@@ -1,3 +1,4 @@
+import os, sys
 import numpy as np
 
 # should be in same directory as this module
@@ -53,9 +54,11 @@ def srfAIRS(fileSRF='/nas/ASR/RC_Release_Benchmark_Tests/AIRS/' + \
     'center_line': center}
 # end srfAIRS()
 
+IDXNPZ = '/nas/ASR/RC_Release_Benchmark_Tests/AIRS/output_files/' + \
+  'AIRS_LBLRTM_Overlap_Idx.npz'
+
 def airsSRFInterpOverlap(srfCenter, srfWN, modWN, \
-  outNPZ='/nas/ASR/RC_Release_Benchmark_Tests/AIRS/output_files/' + \
-    'AIRS_LBLRTM_Overlap_Idx.npz'):
+  outNPZ=IDXNPZ):
   """
   Designed to help save time in interpolateSRF(), which loops over 
   all line centers that are in the LBLRTM spectral range and extracts
@@ -87,14 +90,14 @@ def airsSRFInterpOverlap(srfCenter, srfWN, modWN, \
   # what part of AIRS spectrum (line centers) is contained by 
   # the LBL spectrum? --> indices for center overlap
   icOverlap = np.where(\
-    (srfCenter >= modWN.min()) & (inCenter <= modWN.max()))[0]
+    (srfCenter >= modWN.min()) & (srfCenter <= modWN.max()))[0]
 
   # for each matching center line, zoom in on the center +/- FWHM 
   # region of interest (ROI)
   # pretty time consuming...
   # indices for full overlap
   ifOverlap = []
-  for i, iOverLBL in enumerate(icOverlap):
+  for i, iOver in enumerate(icOverlap):
     print '%d of %d' % (i, icOverlap.size)
     wnOver = srfWN[iOver, :]
 
@@ -118,7 +121,7 @@ def airsSRFInterpOverlap(srfCenter, srfWN, modWN, \
   return icOverlap, ifOverlap
 # end airsSRFInterpOverlap()
 
-def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=None):
+def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=IDXNPZ):
   """
   Interpolate the AIRS spectral response function onto the grid given 
   by an LBLRTM TAPE12 spectrum. Right now this is a very time 
@@ -165,6 +168,10 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=None):
     lcOver, fullOver = airsSRFInterpOverlap(airsCenter, airsWN, lblWN)
   else:
     # grab line center overlap
+    if not os.path.exists(idxNPZ):
+      sys.exit('Could not find %s, you may have to run %s again' % \
+        (idxNPZ, 'airsSRFInterpOverlap()') )
+
     npzDat = np.load(idxNPZ)
     lcOver, fullOver = npzDat['center'], npzDat['full']
   # endif idxNPZ
@@ -172,9 +179,11 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=None):
   # for each matching center line, zoom in on the center +/- FWHM 
   # region of interest (ROI)
   # pretty time consuming...
+  print 'Interpolating LBLRTM spectral grid'
   outRad = []
   for i, iOver in enumerate(lcOver):
-    print '%d of %d' % (i, lcOver.size)
+    t0 = time.clock()
+    #print '%d of %d' % (i, lcOver.size)
     wnOver = airsWN[iOver, :]
     srfOver = airsSRF[iOver, :]
 
