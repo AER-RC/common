@@ -182,7 +182,6 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=IDXNPZ):
   print 'Interpolating LBLRTM spectral grid'
   outRad = []
   for i, iOver in enumerate(lcOver):
-    t0 = time.clock()
     #print '%d of %d' % (i, lcOver.size)
     wnOver = airsWN[iOver, :]
     srfOver = airsSRF[iOver, :]
