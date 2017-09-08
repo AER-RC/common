@@ -96,113 +96,186 @@ def interP(p, pin, vin, debug=False, rh=None):
   return z
 # end interP()
 
-def readOD(path, fout=sys.stdout, double=False):
-    ll = glob.glob(os.path.join(path, 'ODint_*'))
-    od = None
-    ll.sort()
+def readOD(path, double=False):
+  """
+  Read in binary LBLRTM ODint files (IMRG=1 and IOD=1, 3, or 4 in
+  LBLRTM specifications (Record 1.2 in lblrtm_instructions.html)
 
-    for i in range(len(ll)):
-        (ff, s) = readTape12(ll[i], fout=fout, double=double)
-        if od is None:
-            od=np.vstack((np.asarray(s),))
-        else:
-            od=np.vstack((od,np.asarray(s),))
+  Call
+    (ff, od, parms) = readOD(path)
 
-    f = open(os.path.join(path, 'TAPE7'))
-    lines = f.readlines()
-    f.close()
-    z = re.split('\s+', lines[1].strip())
-    n = int(z[1])
-    parms = []
+  Input
+    path -- string, full path to directory with ODint files
 
-    for i in range(2,len(lines),2):
-        p = []
-        z = re.split('\s+', lines[i].strip())
-        p.append(float(z[0]))
-        
-        if len(z)>5:
-            a0 = float(z[3])
-            p0 = float(z[4])
-        else:
-            zz = re.split('\.', z[3])
-            a0 = float(zz[0] + '.' + zz[1])
-            p0 = float('.' + zz[2])
+  Output
+    ff -- float array, wavenumbers of spectrum
+    od -- float array, optical depths of spectrum
+    parms -- float array, nLayers x nMolecules, molecular amounts 
+      (cm-2) as a funtion of molecule and layer
 
-        if len(z)>7:
-            a1 = float(z[6])
-            dz = a1 - a0
-            a2 = a1
-            p1 = float(z[7])
-            dp = p0 - p1
-            p2 = p1
-        elif len(z)>3:
-            dz = a0 - a2
-            a2 = a0
-            dp = p2 - p0
-            p2 = p0
-        else:
-            dz = 0
-            dp = 0
+  Keywords
+    double -- boolean, read in double precision OD values
+  """
+  ff, od = readTape12(path, double=double)
 
-        p.append(dz)
-        p.append(dp)
+  # this assumes a directory of OD files is provided
+  # we will make the function handle one level (i.e., one OD file)
+  # as specified by the user in "path"
+  """
+  # grab list of OD files in path
+  ll = glob.glob(os.path.join(path, 'ODint_*'))
+  od = None
+  ll.sort()
 
-        z = re.split('\s+', lines[i + 1].strip())
+  for i in range(len(ll)):
+    # read in binary data like a TAPE12, store into OD array
+    (ff, s) = readTape12(ll[i], double=double)
+    if od is None:
+      od=np.vstack((np.asarray(s),))
+    else:
+      od=np.vstack((od,np.asarray(s),))
+  # end loop over ODint files
+  """
 
-        # for i in z:p.append(float(i))
-        p += map(float, z)
-        parms.append(p)
+  # not all LBLRTM runs have IATM=1 such that LBLATM is called for 
+  # density computation
+  """
+  f = open(os.path.join(path, 'TAPE7'))
+  lines = f.readlines()
+  f.close()
+  z = re.split('\s+', lines[1].strip())
+  n = int(z[1])
 
-    return (ff, od, parms)
+  # initialize list that will eventually be nMol x nLayers
+  # (molecules per cm-2)
+  # list of lists, where each sublist contains nMol elements
+  parms = []
 
-def readTape7(fName, fout=sys.stdout, sList=False):
+  # read in ASCII TAPE7 parameters (calculations of molecular amounts)
+  # loop over layers (this may be assuming a certain number of 
+  # molecules, or at least the number should not exceed a threshold 
+  # of 7)
+  for i in range(2,len(lines),2):
+    p = []
+    z = re.split('\s+', lines[i].strip())
+    p.append(float(z[0]))
 
-    def cnvline(l, fmt=','):
-        ll = re.split(fmt, l.strip())
-        ll = map(float, ll)
-        return ll
+    if len(z)>5:
+      a0 = float(z[3])
+      p0 = float(z[4])
+    else:
+      zz = re.split('\.', z[3])
+      a0 = float(zz[0] + '.' + zz[1])
+      p0 = float('.' + zz[2])
+    # endif len z
 
-    f = open(fName)
-    l = f.readlines()
-    f.close()
-    ll = []
-    l = l[2:]
-    for i in range(0, len(l), 2):
-        q = re.split('\s+', l[i].strip())
-        if not i:
-            try:
-                if sList:
-                    q = [float(q[0]), float(q[1]), float(q[6]),
-                         float(q[6]) - float(q[3])]
-                else:
-                    q = [[float(q[0]), float(q[4]), float(q[7])],
-                         [float(q[1]), float(q[5]), float(q[8])],
-                         float(q[6]), float(q[6]) - float(q[3])]
-            except (KeyboardInterrupt, SystemExit):
-                raise
-            except (IndexError,ValueError):
-                q = [float(q[0]), float(q[1]), 0, 0]
-        else:
+    if len(z)>7:
+      a1 = float(z[6])
+      dz = a1 - a0
+      a2 = a1
+      p1 = float(z[7])
+      dp = p0 - p1
+      p2 = p1
+    elif len(z)>3:
+      dz = a0 - a2
+      a2 = a0
+      dp = p2 - p0
+      p2 = p0
+    else:
+      dz = 0
+      dp = 0
+    # endif len z
 
-            ind = len(ll) - 1
-            if sList:
-                q2 = ll[ind][2]
-                try:
-                    q = [float(q[0]), float(q[1]), float(q[3]),
-                         float(q[3]) - q2]
-                except (IndexError,ValueError):
-                    zz = re.split('\.', q[3])
-                    q3 = float(zz[0] + zz[1])
-                    q = [float(q[0]), float(q[1]), q3, q3 - q2]
-            else:
-                q0 = ll[ind][0][2]
-                q1 = ll[ind][1][2]
-                q2 = ll[ind][2]
-                q = [[float(q[0]), q0, float(q[4])], [float(q[1]), q1,
-                     float(q[5])], float(q[3]), float(q[3]) - q2]
-        q += cnvline(l[i + 1].strip(), fmt='\s+')
-        ll.append(q)
+    p.append(dz)
+    p.append(dp)
+
+    z = re.split('\s+', lines[i + 1].strip())
+
+    # for i in z:p.append(float(i))
+    # concatenatate (NOT append) floating point list of z onto 
+    # existing p (mol amounts for all all molecules in a given layer)
+    p += map(float, z)
+    parms.append(p)
+  # end loop over TAPE7
+  """
+
+  #return (np.array(ff), np.array(od), np.array(parms))
+  return (np.array(ff), np.array(od))
+# end readOD()
+
+def readTape7(fName, sList=False):
+  """
+  Read LBLRTM TAPE7 ASCII file (molecular amounts computed by LBLATM)
+
+  Call
+    ll = readTape7(fName)
+
+  Input
+    fName -- string, full path to TAPE7 to be read
+
+  Output
+    ll -- 
+
+  Keywords
+    sList -- 
+  """
+
+  def cnvline(l, fmt=','):
+    ll = re.split(fmt, l.strip())
+    ll = map(float, ll)
     return ll
+  # end cnvline()
+
+  f = open(fName)
+  l = f.readlines()
+  f.close()
+  ll = []
+  l = l[2:]
+
+  # loop over layers (this may be assuming a certain number of 
+  # molecules, or at least the number should not exceed a threshold 
+  # of 7)
+  for i in range(0, len(l), 2):
+    q = re.split('\s+', l[i].strip())
+    if not i:
+      try:
+        if sList:
+          q = [float(q[0]), float(q[1]), float(q[6]),
+               float(q[6]) - float(q[3])]
+        else:
+          q = [[float(q[0]), float(q[4]), float(q[7])],
+               [float(q[1]), float(q[5]), float(q[8])],
+               float(q[6]), float(q[6]) - float(q[3])]
+        # endif sList
+      except (KeyboardInterrupt, SystemExit):
+        raise
+      except (IndexError,ValueError):
+        q = [float(q[0]), float(q[1]), 0, 0]
+    else:
+      ind = len(ll) - 1
+      if sList:
+        q2 = ll[ind][2]
+        try:
+          q = [float(q[0]), float(q[1]), float(q[3]),
+               float(q[3]) - q2]
+        except (IndexError,ValueError):
+          zz = re.split('\.', q[3])
+          q3 = float(zz[0] + zz[1])
+          q = [float(q[0]), float(q[1]), q3, q3 - q2]
+      else:
+        q0 = ll[ind][0][2]
+        q1 = ll[ind][1][2]
+        q2 = ll[ind][2]
+        q = [[float(q[0]), q0, float(q[4])], [float(q[1]), q1,
+             float(q[5])], float(q[3]), float(q[3]) - q2]
+      # endif sList
+
+    q += cnvline(l[i + 1].strip(), fmt='\s+')
+    ll.append(q)
+  # end loop over lines
+
+  return ll
+# end readTape7
 
 def readTape12(fileName, double=False, fType=0):
   """
@@ -240,7 +313,7 @@ def readTape12(fileName, double=False, fType=0):
       tested with this function
   """
 
-  def readLBLPanel(ffObj, pHeaderForm):
+  def readLBLPanel(ffObj, pHeaderForm, header=True):
     """
     Read in a single panel
 
@@ -257,23 +330,28 @@ def readTape12(fileName, double=False, fType=0):
       outParam -- float array, corresponding parameter (radiance, 
       transmittance, optical depth -- see lblrtm_instructions.html 
       file assignments) of panel
+
+    Keywords
+      header -- boolean, read in a panel header (should only be done 
+        with the first (radiance) panel)
     """
 
-    # initialization variables that change with panel
-    OK = True; 
+    # initialization of variables that change with panel
+    OK = True;
     outWN = []; outParam = []
     while OK:
       buff = fortranFile.getRecord()
 
       # grab binary data if valid buffer and not a panel header
+      #if len(buff) == struct.calcsize(lfmt): continue
       while buff is not None and len(buff) != struct.calcsize(lfmt):
         buff = fortranFile.getRecord()
-      # end while buff
 
+      # end while buff
       if buff:
         try:
           # read panel header and underlying data
-          (v1, v2, dv, nPanel) = struct.unpack(lfmt, buff)
+          if header: (v1, v2, dv, nPanel) = struct.unpack(lfmt, buff)
           data = fortranFile.readDoubleVector() if double else \
             fortranFile.readFloatVector()
 
@@ -293,7 +371,9 @@ def readTape12(fileName, double=False, fType=0):
           OK = False
       else:
         # end of panel
+        #continue
         OK = False
+      # endif buff
     # end while OK
     return outWN, outParam
   # end readLBLPanel()
@@ -313,10 +393,13 @@ def readTape12(fileName, double=False, fType=0):
   else: lfmt = 'ddf%s' % iFormat
 
   waveNumbers, output = readLBLPanel(fortranFile, lfmt)
-  #waveNumbers, output = readLBLPanel(fortranFile, lfmt)
+
+  # read file header
+  #waveNumbers, output = readLBLPanel(fortranFile, lfmt, header=False)
+  #print len(waveNumbers)
   #waveNumbers, output = readLBLPanel(fortranFile, lfmt)
 
-  return waveNumbers, output
+  return np.array(waveNumbers), np.array(output)
 # end readTape12()
 
 def getOD(tape5, ostream=sys.stdout):
