@@ -150,6 +150,8 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=IDXNPZ):
       airsSRFInterpOverlap() is run
   """
 
+  from scipy.interpolate import interp1d
+
   # also should be in same directory as this module
   import RC_utils as RC
 
@@ -194,8 +196,7 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=IDXNPZ):
 
     # fit a quadratic to the AIRS spectrum, then solve equation with 
     # LBL spectral points (i.e., interpolate onto LBL grid)
-    quadFit = np.polyfit(wnOver, srfOver, 2)
-    quadFunc = np.poly1d(quadFit)
+    quadFunc = interp1d(wnOver, srfOver, kind='quadratic')
     interpSRF = quadFunc(lblWN[iOverLBL])
     interpSRF /= sum(interpSRF)
     interpSRF *= lblSpec[iOverLBL]
