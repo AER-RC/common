@@ -57,7 +57,7 @@ def srfAIRS(fileSRF='/nas/ASR/RC_Release_Benchmark_Tests/AIRS/' + \
 IDXNPZ = '/nas/ASR/RC_Release_Benchmark_Tests/AIRS/output_files/' + \
   'AIRS_LBLRTM_Overlap_Idx.npz'
 
-def airsSRFInterpOverlap(srfCenter, srfWN, modWN, \
+def airsSRFInterpOverlap(srfCenter, srfWN, srf, modWN, \
   outNPZ=IDXNPZ):
   """
   Designed to help save time in interpolateSRF(), which loops over 
@@ -73,6 +73,8 @@ def airsSRFInterpOverlap(srfCenter, srfWN, modWN, \
       for Spectral Response Function (SRF)
     srfWN -- array, nFWHM x nWavenumbers complete wavenumber array 
       for SRF (i.e., not just line centers)
+    srf -- float array, corresponding spectral response function 
+      values at wavenumbers in srfWN
     modWN -- vector array, 1 x nWNLBL of wavenumbers in 
       LBLRTM spectrum
 
@@ -87,6 +89,8 @@ def airsSRFInterpOverlap(srfCenter, srfWN, modWN, \
       overlapIdx is saved
   """
 
+  from scipy.interpolate import interp1d
+
   # what part of AIRS spectrum (line centers) is contained by 
   # the LBL spectrum? --> indices for center overlap
   icOverlap = np.where(\
@@ -96,7 +100,7 @@ def airsSRFInterpOverlap(srfCenter, srfWN, modWN, \
   # region of interest (ROI)
   # pretty time consuming...
   # indices for full overlap
-  ifOverlap = []
+  ifOverlap = []; iSRF = []
   for i, iOver in enumerate(icOverlap):
     print '%d of %d' % (i, icOverlap.size)
     wnOver = srfWN[iOver, :]
@@ -109,16 +113,25 @@ def airsSRFInterpOverlap(srfCenter, srfWN, modWN, \
     iOverLBL = \
       np.where((modWN >= wnOver[0]) & (modWN <= wnOver[-1]))[0]
 
-    if iOverLBL.size == 0:
-      ifOverlap.append(np.array([np.nan]))
-    else:
-      ifOverlap.append(iOverLBL)
-    # endif size
+    if iOverLBL.size == 0: continue
+
+    ifOverlap.append(iOverLBL)
+    wnOver = srfWN[iOver, :]
+    srfOver = srf[iOver, :]
+
+    # fit a quadratic to the AIRS spectrum, then solve equation with 
+    # LBL spectral points (i.e., interpolate onto LBL grid)
+    quadFunc = interp1d(wnOver, srfOver, kind='quadratic')
+    interpSRF = quadFunc(modWN[iOverLBL])
+    interpSRF /= sum(interpSRF)
+    iSRF.append(interpSRF)
   # end iOver loop
 
-  np.savez('%s' % outNPZ[:-4], center=icOverlap, full=ifOverlap)
+  np.savez(\
+    '%s' % outNPZ[:-4], interp_srf=iSRF, full=ifOverlap, \
+      center=icOverlap)
 
-  return icOverlap, ifOverlap
+  return icOverlap, ifOverlap, iSRF
 # end airsSRFInterpOverlap()
 
 def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=IDXNPZ):
@@ -150,7 +163,7 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=IDXNPZ):
       airsSRFInterpOverlap() is run
   """
 
-  from scipy.interpolate import interp1d
+  import time
 
   # also should be in same directory as this module
   import RC_utils as RC
@@ -166,43 +179,33 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=IDXNPZ):
 
   if idxNPZ is None:
     # find line center overlap
-    print 'Indice file not found, running airsSRFInterpOverlap()'
-    lcOver, fullOver = airsSRFInterpOverlap(airsCenter, airsWN, lblWN)
+    print 'Indice file not set, running airsSRFInterpOverlap()'
+    lcOver, fullOver, interpSRF = \
+      airsSRFInterpOverlap(airsCenter, airsWN, airsSRF, lblWN)
   else:
     # grab line center overlap
     if not os.path.exists(idxNPZ):
       sys.exit('Could not find %s, you may have to run %s again' % \
         (idxNPZ, 'airsSRFInterpOverlap()') )
 
+    print 'Loading %s' % idxNPZ
     npzDat = np.load(idxNPZ)
-    lcOver, fullOver = npzDat['center'], npzDat['full']
+    lcOver = npzDat['center']
+    fullOver = npzDat['full']
+    interpSRF = npzDat['interp_srf']
   # endif idxNPZ
 
   # for each matching center line, zoom in on the center +/- FWHM 
   # region of interest (ROI)
-  # pretty time consuming...
-  print 'Interpolating LBLRTM spectral grid'
+  print 'Scaling AIRS SRF with LBLRTM radiances'
   outRad = []
   for i, iOver in enumerate(lcOver):
-    #print '%d of %d' % (i, lcOver.size)
-    wnOver = airsWN[iOver, :]
-    srfOver = airsSRF[iOver, :]
-
+    print '%d of %d' % (i+1, lcOver.size)
     iOverLBL = fullOver[i]
-    if np.isnan(iOverLBL).all(): 
-      outRad.append(np.nan)
-      continue
-    # endif NaN check
-
-    # fit a quadratic to the AIRS spectrum, then solve equation with 
-    # LBL spectral points (i.e., interpolate onto LBL grid)
-    quadFunc = interp1d(wnOver, srfOver, kind='quadratic')
-    interpSRF = quadFunc(lblWN[iOverLBL])
-    interpSRF /= sum(interpSRF)
-    interpSRF *= lblSpec[iOverLBL]
-    outRad.append(sum(interpSRF))
-  # end iOver loop
-
+    tempSRF = interpSRF[i] * lblSpec[iOverLBL]
+    outRad.append(sum(tempSRF))
+  # end loop
+  
   outWN = np.array(airsCenter)
   outRad = np.array(outRad)
   outBT = RC.rad2BT(outWN, outRad)
