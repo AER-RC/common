@@ -2,6 +2,26 @@ import os, sys
 import numpy as np
 import subprocess as sub
 
+def log(*message):
+  """
+  Function from Andre Wehe code in 
+  /nas/project/rc/rc2/rpernak/NH3_Retrievals/cris_python.tar
+
+  Modified for better readability
+
+  Used in error/exception handling, specifically file_check() so user
+  has a better idea of where error originataed
+  """
+  import inspect
+
+  (frame, filename, line_number, function_name, lines, index) = \
+   inspect.getouterframes(inspect.currentframe())[-1]
+
+  outStr = '***\nIn %s:%d\n%s\n***' % \
+    (os.path.basename(filename), line_number, ' '.join(message))
+  print outStr
+# end log()
+
 def spawn(cmd):
   """
   Simplifies the call to a shell command in a Python session
@@ -31,7 +51,8 @@ def file_check(path):
   Quick check if path exists.  Use before reading a file.
   """
   if not os.path.exists(path):
-    sys.exit('Could not find %s, returning' % path)
+    log('Could not find %s, returning' % path)
+    sys.exit()
 # end file_check()
 
 def no_overwrite(path):
