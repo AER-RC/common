@@ -313,7 +313,7 @@ def readTape12(fileName, double=False, fType=0):
       tested with this function
   """
 
-  def readLBLPanel(ffObj, pHeaderForm, header=True):
+  def readLBLPanel(ffObj, pHeaderForm):
     """
     Read in a single panel
 
@@ -332,13 +332,12 @@ def readTape12(fileName, double=False, fType=0):
       file assignments) of panel
 
     Keywords
-      header -- boolean, read in a panel header (should only be done 
-        with the first (radiance) panel)
     """
 
     # initialization of variables that change with panel
     OK = True;
     outWN = []; outParam = []
+    ctr = 1
     while OK:
       buff = fortranFile.getRecord()
 
@@ -351,9 +350,11 @@ def readTape12(fileName, double=False, fType=0):
       if buff:
         try:
           # read panel header and underlying data
-          if header: (v1, v2, dv, nPanel) = struct.unpack(lfmt, buff)
+          (v1, v2, dv, nPanel) = struct.unpack(lfmt, buff)
           data = fortranFile.readDoubleVector() if double else \
             fortranFile.readFloatVector()
+          print len(data), ctr
+          ctr += 1
 
           # concatenate (NOT append) onto output
           # for now, this is just radiance -- looks like other
@@ -401,6 +402,141 @@ def readTape12(fileName, double=False, fType=0):
 
   return np.array(waveNumbers), np.array(output)
 # end readTape12()
+
+def rpReadTape12(fileName, double=False, fType=0):
+  """
+  Read in a TAPE12 (or similar TAPE10-13) LBLRTM output binary file
+  and return spectrum
+
+  Original: Scott Zaccheo (AER), modified by Rick Pernak (AER, 2017) 
+
+  Call
+    waveNumbers, output = rpReadTape12(fileName)
+
+  Input
+    fileName -- string, full path to binary file
+
+  Output
+    waveNumbers -- float array, wavenumbers of spectrum
+    output -- float array, corresponding parameter (radiance, 
+      transmittance, optical depth -- see lblrtm_instructions.html 
+      file assignments)
+
+  Keywords
+    double -- boolean, read in double-precision bits
+    fType -- int, file type; from 
+      /project/rc/rc2/mshep/idl/patbrown/read_lbl_file.pro:
+    
+      0: scanned transmittance or radiance, optical depth
+      1: radiance from monochromatic radiance calculation
+      2: transmittance from monochromatic radiance calculation
+      3: Aerosol absorbtance from spectral aerosol transmittance file
+      4: Aerosol scattering from spectral aerosol transmittance file
+      5: Aerosol asymmetry from spectral aerosol transmittance file
+      6: transmittance from monochromatic radiance calculation
+
+      File types 3, 4, and 5 are from TAPE20 files and have not been 
+      tested with this function
+  """
+
+  import utils
+
+  # main readTape12()
+  iFormat = 'l'
+  if struct.calcsize('l') == 8:iFormat = 'i'
+
+  # instantiate FortranFile object
+  fortranFile = FortranFile.FortranFile(fileName)
+
+  # read file header
+  data = fortranFile.getRecord()
+
+  # format for each panel header
+  lfmt = 'dddl' if double else 'ddf%s' % iFormat
+  headLen = struct.calcsize(lfmt)
+
+  # the number of output parameters differs by file type,
+  # how many are expected?
+  if fType in [0, 1]:
+    paramExp = 1
+  elif fType in range(2, 6):
+    paramExp = 2
+  else:
+    paramExp = 3
+  # endif fType
+
+  paramStr = ['Scanned', 'Radiance', 'Transmittance']
+
+  while True:
+    # skip to first panel header
+    buff = fortranFile.getRecord()
+    #while buff is None: buff = fortranFile.getRecord()
+    #while buff is not None and len(buff) != headLen:
+    #  buff = fortranFile.getRecord()
+
+    if buff:
+      if buff and len(buff) == headLen:
+        (v1, v2, dv, nPtPanel) = struct.unpack(lfmt, buff)
+        print v1, v2, dv
+      else:
+        data = fortranFile.readDoubleVector() if double else \
+          fortranFile.readFloatVector()
+      # endif buf and len
+    else:
+      data = fortranFile.readDoubleVector() if double else \
+        fortranFile.readFloatVector()
+      print len(data)
+    # endif buff len
+
+    break
+    if data is None: break
+
+    # concatenate (NOT append) onto output
+    # for now, this is just radiance -- looks like other
+    # parameters like transmittances are in other panels
+    outParam += data
+
+    # concatenate wavenumber array (without numpy) based 
+    # on spectral resolution and starting wavenumber
+    outWN += \
+      map(lambda x:v1 + x * dv, range(len(data)))
+
+    #print ctr, v1, v2, len(outParam)
+  # endwhile
+
+  sys.exit('GOT HERE')
+  if buff:
+    try:
+      # read panel header and underlying data
+      
+      data = fortranFile.readDoubleVector() if double else \
+        fortranFile.readFloatVector()
+
+      # concatenate (NOT append) onto output
+      # for now, this is just radiance -- looks like other
+      # parameters like transmittances are in other panels
+      outParam += data
+
+      # concatenate wavenumber array (without numpy) based 
+      # on spectral resolution and starting wavenumber
+      outWN += \
+        map(lambda x:v1 + x * dv, range(len(data)))
+    except (KeyboardInterrupt, SystemExit):
+      raise
+    except:
+      #print 'Data could not be read, file may be corrupted'
+      OK = False
+  else:
+    # end of panel
+    #continue
+    OK = False
+  # endif buff
+# end while OK
+
+  waveNumbers, output = np.array(outWN), np.array(outParam)
+
+  return waveNumbers, output
+# end rpReadTape12()
 
 def getOD(tape5, ostream=sys.stdout):
   """
