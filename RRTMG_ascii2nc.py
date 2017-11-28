@@ -10,10 +10,25 @@ sys.path.append('common_modules')
 import utils
 import RC_utils as rc
 
-# global variables
+# global variables (in CAPS)
 MODES = ['garand', 'rfmip']
 
-class ascii():
+# LW and SW fields from RRTMGP (Garand) template that will be modified 
+NCFIELDSG = ['band_heating_rate', 'band_lims_wvn', 'p_lev', \
+  'band_flux_dn', 'band_flux_net', 'band_flux_up', \
+  'flux_dn', 'flux_net', 'flux_up', 'heating_rate']
+
+# SW fields from RRTMGP template that will be modified 
+NCSWFIELDSG = ['band_flux_dif_dn', 'band_flux_dir_dn', \
+  'flux_dif_dn', 'flux_dir_dn']
+
+# LW and SW fields from RFMIP template that will be modified 
+NCFIELDSR = []
+
+# SW fields from RRTMGP template that will be modified 
+NCSWFIELDSR = []
+
+class rrtmg():
   def findProfiles(self):
     """
     Extract the RRTMG flux files for each spectral domain (LW and SW)
@@ -178,14 +193,105 @@ class ascii():
     for key in outDict.keys():
       if 'BB' in key: continue
       if key in ['wavenumber', 'level_pressures']: continue
-      outDict[key] = outDict[key][iSort, :]
+      outDict[key] = outDict[key][:, iSort]
     # end key loop
     outDict['wavenumber'] = outDict['wavenumber'][iSort, :]
 
     return outDict
   # end readASCII()
 
-  def __init__(self, inDirLW, inDirSW, searchStr='OUTPUT_RRTM'):
+  def combineProfiles(self):
+    """
+    Merge together the fluxes and heating rates from all profiles 
+    into a single nLevel x nProfile x nBand array for each parameter
+    """
+
+    fluxDict = [self.fluxesLW, self.fluxesSW]
+
+    # loop over spectral domains and combine profiles for each
+    for iFD, fDict in enumerate(fluxDict):
+      upTot, downTot, net, hr, downDir, downDif = \
+        ([] for i in range(6))
+      upTotBB, downTotBB, netBB, hrBB, downDirBB, downDifBB = \
+        ([] for i in range(6))
+
+      # loop over profiles
+      for iKey, key in enumerate(fDict.keys()):
+        # by-band fluxes (LW and SW)
+        upTot.append(fDict[key]['up_flux'])
+        downTot.append(fDict[key]['down_flux'])
+        net.append(fDict[key]['net_flux'])
+        hr.append(fDict[key]['heat_rate'])
+
+        # broadband (LW and SW)
+        upTotBB.append(fDict[key]['up_flux_BB'])
+        downTotBB.append(fDict[key]['down_flux_BB'])
+        netBB.append(fDict[key]['net_flux_BB'])
+        hrBB.append(fDict[key]['heat_rate_BB'])
+
+        # SW by-band and broadband
+        if iFD == 1:
+          downDir.append(fDict[key]['dirdown_flux'])
+          downDif.append(fDict[key]['difdown_flux'])
+          downDirBB.append(fDict[key]['dirdown_flux_BB'])
+          downDifBB.append(fDict[key]['difdown_flux_BB'])
+        # endif SW
+      # end fDict keys loop
+
+      # for transforming arrays from (nProfiles x nLevels x nBands)
+      # to (nLevels x nProfiles x nBands)
+      tAxes = (1,0,2)
+
+      # now convert to arrays and assign as attributes to object
+      combined = {}
+      fields = self.ncFieldsSW if iFD == 1 else self.ncFieldsLW
+
+      combined[fields[0]] = np.transpose(np.array(hr), axes=tAxes)
+      combined[fields[2]] = np.array(self.pLev)
+      combined[fields[3]] = np.transpose(np.array(downTot), \
+        axes=tAxes)
+      combined[fields[4]] = np.transpose(np.array(net), axes=tAxes)
+      combined[fields[5]] = np.transpose(np.array(upTot), axes=tAxes)
+      combined[fields[6]] = np.array(downTotBB).T
+      combined[fields[7]] = np.array(netBB).T
+      combined[fields[8]] = np.array(upTotBB).T
+      combined[fields[9]] = np.array(hrBB).T
+
+      if iFD == 1:
+        combined[fields[1]] = np.array(self.wnSW)
+        combined[fields[10]] = np.transpose(np.array(downDif), \
+          axes=tAxes)
+        combined[fields[11]] = np.transpose(np.array(downDir), \
+          axes=tAxes)
+        combined[fields[12]] = np.array(downDifBB).T
+        combined[fields[13]] = np.array(downDirBB).T
+        self.combinedSW = dict(combined)
+      else:
+        combined[fields[1]] = np.array(self.wnLW)
+        self.combinedLW = dict(combined)
+      # endif SW/LW
+    # end loop over spectral domains
+
+    return self
+  # end combineProfiles()
+
+  def writeNC(self):
+    """
+    Write a netCDF with the data in an rrtmg object. This is done for
+    each spectral domain (lw and sw)
+
+      None returned. netCDF is written to 'rrtmg-sw-suffix' and 
+        'rrtmg-lw-suffix'
+
+    """
+    outNC = nc.Dataset(self.ncOutLW, 'w')
+    outNC.close()
+    outNC = nc.Dataset(self.ncOutSW, 'w')
+    outNC.close()
+  # end writeNC()
+
+  def __init__(self, inDirLW, inDirSW, searchStr='OUTPUT_RRTM', \
+    template='garand', suffix='inputs-outputs.nc'):
     """
     Extract the RRTMG flux files for each spectral domain (LW and SW)
 
@@ -203,12 +309,24 @@ class ascii():
 
     Keywords
       searchStr -- string used for finding RRTMG ASCII files
+      template -- string that dictates what netCDF format is used
+      suffix -- string, that is appended to "rrtmg-lw" and "rrtmg-sw" 
+        in the output netCDF files
     """
 
     self.lwDir = inDirLW
     self.swDir = inDirSW
     self.search = searchStr
     self.txtFiles = self.findProfiles()
+
+    # determine which netCDF fields to modify
+    if template == 'garand':
+      self.ncFieldsLW = list(NCFIELDSG)
+      self.ncFieldsSW = NCFIELDSG + NCSWFIELDSG
+    else:
+      self.ncFieldsLW = list(NCFIELDSR)
+      self.ncFieldsSW = NCFIELDSR + NCSWFIELDSR
+    # endif template
 
     # read the LW ASCII files and store each in comprehensive dict
     lwDict = {}
@@ -222,8 +340,8 @@ class ascii():
         self.readASCII(prof, shortWave=True)
     # end SW Loop
 
-    self.lwFluxes = dict(lwDict)
-    self.swFluxes = dict(swDict)
+    self.fluxesLW = dict(lwDict)
+    self.fluxesSW = dict(swDict)
 
     # we now assume that all profiles have the same number of levels
     # and that the number is the same for each both spectral domains
@@ -231,33 +349,25 @@ class ascii():
     self.nLayers = self.nLevels - 1
     self.pLev = lwDict['profile001']['level_pressures']
 
-    self.lwWN = lwDict['profile001']['wavenumber']
-    self.swWN = swDict['profile001']['wavenumber']
+    self.wnLW = lwDict['profile001']['wavenumber']
+    self.wnSW = swDict['profile001']['wavenumber']
+    self.nBandsLW = lwDict['profile001']['wavenumber'].shape[0]
+    self.nBandsSW = swDict['profile001']['wavenumber'].shape[0]
+
+    # now merge the profiles
+    self.combineProfiles()
+
+    # output filename construction
+    self.ncOutLW = 'rrtmg-lw-%s' % suffix
+    self.ncOutSW = 'rrtmg-sw-%s' % suffix
+
   # end constructor
-# end ascii()
-
-def writeNC(inObj, mode='garand', suffix='inputs-outputs.nc'):
-  """
-  Write a netCDF with the data in an 'ascii' object. This is done for
-  each spectral domain (lw and sw)
-
-  Input
-    inObj -- object from ascii class
-
-  Output
-    None returned. netCDF is written to 'rrtmg-sw-suffix' and 
-      'rrtmg-lw-suffix'
-
-  Keywords
-    mode -- string that determines what netCDF format to use
-    suffix -- output netCDF filename suffix appended to 'rrtmg-?w-'
-  """
-  
-# end writeNC()
+# end rrtmg()
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(\
-    description='Convert ASCII RRTMG output to netCDF format.')
+    description='Convert ASCII RRTMG output to netCDF format.  ' + \
+    'A netCDF for both the LW and SW is written to working directory.')
   parser.add_argument('lw_dir', type=str, \
     help='Directory with RRTGM LW results.')
   parser.add_argument('sw_dir', type=str, \
@@ -268,6 +378,11 @@ if __name__ == '__main__':
   parser.add_argument('--search', type=str, default='OUTPUT_RRTM', \
     help='Search string that will be used to find RRTMG output ' + \
     'ASCII files.')
+  parser.add_argument('--suffix', type=str, \
+    default='inputs-outputs.nc', \
+    help='Output netCDF filename suffix appended to "rrtmg-?w-" ' + \
+    '(so for the default "inputs-outputs.nc" and for the LW, the ' + \
+    'output netCDF filename would be "rrtmg-lw-inputs-outputs.nc.")')
   args = parser.parse_args()
 
   lwDir = args.lw_dir; utils.file_check(lwDir)
@@ -276,23 +391,25 @@ if __name__ == '__main__':
   ncMode = args.mode.lower()
   if ncMode not in MODES: sys.exit('Set mode to any of %s' % MODES)
 
-  asciiObj = ascii(lwDir, swDir, searchStr=args.search)
+  rrtmgObj = rrtmg(lwDir, swDir, searchStr=args.search, \
+    template=ncMode, suffix='inputs-outputs.nc')
+  rrtmgObj.writeNC()
 
   # did sanity checks for all fluxes and HR in Garand 1, all bands
   # LW sanity check
-  #print(asciiObj.lwFluxes['profile001']['net_flux_BB'])
+  #print(rrtmgObj.fluxesLW['profile001']['net_flux_BB'])
   """
-  print(asciiObj.lwFluxes['profile001']['net_flux'][0])
+  print(rrtmgObj.fluxesLW['profile001']['net_flux'][0])
   print()
-  print(asciiObj.lwFluxes['profile001']['net_flux'][-1])
+  print(rrtmgObj.fluxesLW['profile001']['net_flux'][-1])
   """
 
   # SW sanity check
-  #print(asciiObj.swFluxes['profile001']['heat_rate_BB'])
+  #print(rrtmgObj.fluxesSW['profile001']['heat_rate_BB'])
   """
-  print(asciiObj.swFluxes['profile001']['heat_rate'][0])
+  print(rrtmgObj.fluxesSW['profile001']['heat_rate'][0])
   print()
-  print(asciiObj.swFluxes['profile001']['heat_rate'][-1])
+  print(rrtmgObj.fluxesSW['profile001']['heat_rate'][-1])
   """
 
 # end main()
