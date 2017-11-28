@@ -1,3 +1,6 @@
+# for Python 3 compatibility
+from __future__ import print_function
+
 import os, sys
 import numpy as np
 import subprocess as sub
@@ -19,7 +22,7 @@ def log(*message):
 
   outStr = '***\nIn %s:%d\n%s\n***' % \
     (os.path.basename(filename), line_number, ' '.join(message))
-  print outStr
+  print(outStr)
 # end log()
 
 def spawn(cmd):
@@ -154,7 +157,7 @@ def call_CR2(path='/usr/local/CentOS6/Cr2/misc/set276env'):
   call = sub.Popen(path, shell=True, \
     stdout=sub.PIPE, stderr=sub.PIPE)
   callout, callerr = call.communicate()
-  print callerr
+  print(callerr)
 
   return True
 # end call_CR2()

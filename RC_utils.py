@@ -165,6 +165,8 @@ def radsumRead(inFile):
       heat_rate: heating rate (K/day) as a function of wavenumber 
         and level (nLevel x nWavenumber array)
       wavenumber: spectral points (cm-1) vector (1 x nWavenumber)
+      level_pressure: pressure at layer boundaries 
+        (nLevel-element array)
 
   Keywords
     None
