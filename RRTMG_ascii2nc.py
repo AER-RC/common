@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
 import os, sys, glob, argparse
+import subprocess as sub
 import numpy as np
 import netCDF4 as nc
+
+# conda install -c conda-forge pynco
 from nco import Nco as NCO
 
 # RC GitLab repo
+# git clone git@lex-gitlab.aer.com:RC/common_modules.git
 sys.path.append('common_modules')
 import utils
-import RC_utils as rc
 
 # global variables (in CAPS)
 MODES = ['garand', 'rfmip']
@@ -25,8 +28,15 @@ NCSWFIELDSG = ['band_flux_dif_dn', 'band_flux_dir_dn', \
 # LW and SW fields from RFMIP template that will be modified 
 NCFIELDSR = []
 
-# SW fields from RRTMGP template that will be modified 
+# SW fields from RFMIP template that will be modified 
 NCSWFIELDSR = []
+
+# Directory that contains the RRTMGP netCDFs that will be used as a 
+# template for the Garand atmospheres
+REFNCDIR = '/rd47/scratch/RRTMGP/RRTMGP_SVN/trunk/' + \
+  'test/flux_compute/ref'
+REFNCLW = '%s/rrtmgp-lw-inputs-outputs-clear.nc' % REFNCDIR
+REFNCSW = '%s/rrtmgp-sw-inputs-outputs-clear.nc' % REFNCDIR
 
 class rrtmg():
   def findProfiles(self):
@@ -48,6 +58,21 @@ class rrtmg():
 
     self.nProfiles = len(lwFiles)
 
+    # some RRTMG files are stored with profile numbers that are not 
+    # 0-padded (e.g., OUTPUT_RRTM.GARAND_1 instead of 
+    # OUTPUT_RRTM.GARAND_01), so we need to try and address this
+    if self.profiles == 'garand':
+      fileList = [lwFiles, swFiles]
+      for iList, fList in enumerate(fileList):
+        profNum = np.array(\
+          [int(prof.split('_')[-1]) for prof in fList])
+        iSort = np.argsort(profNum)
+        if iList == 0:
+          lwFiles = list(np.array(lwFiles)[iSort])
+        else:
+          swFiles = list(np.array(swFiles)[iSort])
+      # end fList loop
+      
     return {'lw_files': lwFiles, 'sw_files': swFiles}
   # end findProfiles()
 
@@ -210,6 +235,7 @@ class rrtmg():
 
     # loop over spectral domains and combine profiles for each
     for iFD, fDict in enumerate(fluxDict):
+      pLev = []
       upTot, downTot, net, hr, downDir, downDif = \
         ([] for i in range(6))
       upTotBB, downTotBB, netBB, hrBB, downDirBB, downDifBB = \
@@ -217,6 +243,8 @@ class rrtmg():
 
       # loop over profiles
       for iKey, key in enumerate(fDict.keys()):
+        pLev.append(fDict[key]['level_pressures'])
+
         # by-band fluxes (LW and SW)
         upTot.append(fDict[key]['up_flux'])
         downTot.append(fDict[key]['down_flux'])
@@ -247,7 +275,7 @@ class rrtmg():
       fields = self.ncFieldsSW if iFD == 1 else self.ncFieldsLW
 
       combined[fields[0]] = np.transpose(np.array(hr), axes=tAxes)
-      combined[fields[2]] = np.array(self.pLev)
+      combined[fields[2]] = np.array(pLev).T
       combined[fields[3]] = np.transpose(np.array(downTot), \
         axes=tAxes)
       combined[fields[4]] = np.transpose(np.array(net), axes=tAxes)
@@ -284,14 +312,41 @@ class rrtmg():
         'rrtmg-lw-suffix'
 
     """
-    outNC = nc.Dataset(self.ncOutLW, 'w')
-    outNC.close()
-    outNC = nc.Dataset(self.ncOutSW, 'w')
-    outNC.close()
+
+    # first copy over the netCDF templates
+    lwCmd = [self.ncCopy, self.ncTempLW, self.ncOutLW]
+    swCmd = [self.ncCopy, self.ncTempSW, self.ncOutSW]
+    sub.call(lwCmd)
+    sub.call(swCmd)
+
+    # now edit the copies with profile data
+    #print(self.combinedSW.keys())
+
+    # for now, we'll ignore heating rate because the RRTMG output is 
+    # on levels and the RRTMGP output is on layers
+    tempFields = self.ncFieldsLW
+    fields = list(tempFields)
+    fields.remove(tempFields[0])
+    fields.remove(tempFields[9])
+
+    lwObj = nc.Dataset(self.ncOutLW, 'r+')
+    swObj = nc.Dataset(self.ncOutSW, 'r+')
+
+    print(np.array(lwObj.variables['flux_up']))
+    print()
+    print(self.combinedLW['flux_up'])
+    #for field in fields:
+    #  print(field)
+    #  lwObj.variables[field][:] == self.combinedLW[field]
+    # end fields loop
+
+    lwObj.close()
+    swObj.close()
   # end writeNC()
 
   def __init__(self, inDirLW, inDirSW, searchStr='OUTPUT_RRTM', \
-    template='garand', suffix='inputs-outputs.nc'):
+    profiles='garand', templateLW=REFNCLW, templateSW=REFNCSW, \
+    suffix='inputs-outputs.nc', ncCopyPath='nccopy'):
     """
     Extract the RRTMG flux files for each spectral domain (LW and SW)
 
@@ -309,24 +364,35 @@ class rrtmg():
 
     Keywords
       searchStr -- string used for finding RRTMG ASCII files
-      template -- string that dictates what netCDF format is used
+      profiles -- string that dictates what netCDF format is used 
+        (e.g., Garand, RFMIP, etc.)
+      templateLW -- string, full path to LW netCDF file for the 
+        specified profiles
+      templateSW -- string, full path to SW netCDF file for the 
+        specified profiles
       suffix -- string, that is appended to "rrtmg-lw" and "rrtmg-sw" 
         in the output netCDF files
+      ncCopyPath -- string, full path to nccopy executable (or just 
+        "nccopy" if it is in $PATH)
     """
 
     self.lwDir = inDirLW
     self.swDir = inDirSW
     self.search = searchStr
+    self.profiles = profiles
     self.txtFiles = self.findProfiles()
+    self.ncTempLW = templateLW
+    self.ncTempSW = templateSW
+    self.ncCopy = ncCopyPath
 
     # determine which netCDF fields to modify
-    if template == 'garand':
+    if profiles == 'garand':
       self.ncFieldsLW = list(NCFIELDSG)
       self.ncFieldsSW = NCFIELDSG + NCSWFIELDSG
     else:
       self.ncFieldsLW = list(NCFIELDSR)
       self.ncFieldsSW = NCFIELDSR + NCSWFIELDSR
-    # endif template
+    # endif profiles
 
     # read the LW ASCII files and store each in comprehensive dict
     lwDict = {}
@@ -383,6 +449,16 @@ if __name__ == '__main__':
     help='Output netCDF filename suffix appended to "rrtmg-?w-" ' + \
     '(so for the default "inputs-outputs.nc" and for the LW, the ' + \
     'output netCDF filename would be "rrtmg-lw-inputs-outputs.nc.")')
+  parser.add_argument('--lw_template', type=str, default=REFNCLW, \
+    help='Full path to netCDF that will be used as a template ' + \
+    'on which the output LW netCDF will be based.')
+  parser.add_argument('--sw_template', type=str, default=REFNCSW, \
+    help='Full path to netCDF that will be used as a template ' + \
+    'on which the output SW netCDF will be based.')
+  parser.add_argument('-n', '--nccopy_path', type=str, \
+    default='/nas/project/p1770/dependencies/bin/nccopy', \
+    help='Full path to the nccopy executable in the C netCDF ' + \
+    'library (must be version 4.3.0 or newer).')
   args = parser.parse_args()
 
   lwDir = args.lw_dir; utils.file_check(lwDir)
@@ -391,8 +467,13 @@ if __name__ == '__main__':
   ncMode = args.mode.lower()
   if ncMode not in MODES: sys.exit('Set mode to any of %s' % MODES)
 
+  ncTempLW = args.lw_template; utils.file_check(ncTempLW)
+  ncTempSW = args.sw_template; utils.file_check(ncTempSW)
+  ncCopy = args.nccopy_path; utils.file_check(ncCopy)
+
   rrtmgObj = rrtmg(lwDir, swDir, searchStr=args.search, \
-    template=ncMode, suffix='inputs-outputs.nc')
+    profiles=ncMode, templateLW=ncTempLW, templateSW=ncTempSW, \
+    suffix='inputs-outputs.nc', ncCopyPath=ncCopy)
   rrtmgObj.writeNC()
 
   # did sanity checks for all fluxes and HR in Garand 1, all bands
