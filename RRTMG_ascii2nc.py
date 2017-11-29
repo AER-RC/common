@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import os, sys, glob, argparse
 import subprocess as sub
 import numpy as np
 import netCDF4 as nc
-
-# conda install -c conda-forge pynco
-from nco import Nco as NCO
 
 # RC GitLab repo
 # git clone git@lex-gitlab.aer.com:RC/common_modules.git
@@ -72,7 +71,7 @@ class rrtmg():
         else:
           swFiles = list(np.array(swFiles)[iSort])
       # end fList loop
-      
+
     return {'lw_files': lwFiles, 'sw_files': swFiles}
   # end findProfiles()
 
@@ -193,24 +192,26 @@ class rrtmg():
     outDict = {}
 
     outDict['wavenumber'] = np.array([wn1, wn2])[:, 1:].T
-    outDict['level_pressures'] = np.array(pLev)
+
+    # mbar to Pa conversion
+    outDict['level_pressures'] = np.array(pLev)[::-1] * 100
 
     # transpose the output arrays to follow RRTMGP netCDF convention
     # and slice to separate broadband from band arrays
-    outDict['up_flux'] = np.array(upTot)[1:, :].T
-    outDict['up_flux_BB'] = np.array(upTot)[0].T
-    outDict['net_flux'] = np.array(net)[1:, :].T
-    outDict['net_flux_BB'] = np.array(net)[0].T
-    outDict['heat_rate'] = np.array(hr)[1:, :].T
-    outDict['heat_rate_BB'] = np.array(hr)[0].T
-    outDict['down_flux'] = np.array(downTot)[1:, :].T
-    outDict['down_flux_BB'] = np.array(downTot)[0].T
+    outDict['up_flux'] = np.array(upTot)[1:, ::-1].T
+    outDict['up_flux_BB'] = np.array(upTot)[0].T[::-1]
+    outDict['net_flux'] = np.array(net)[1:, ::-1].T
+    outDict['net_flux_BB'] = np.array(net)[0].T[::-1]
+    outDict['heat_rate'] = np.array(hr)[1:, ::-1].T[:-1]
+    outDict['heat_rate_BB'] = np.array(hr)[0].T[::-1][:-1]
+    outDict['down_flux'] = np.array(downTot)[1:, ::-1].T
+    outDict['down_flux_BB'] = np.array(downTot)[0].T[::-1]
 
     if shortWave:
-      outDict['difdown_flux'] = np.array(downDif)[1:, :].T
-      outDict['difdown_flux_BB'] = np.array(downDif)[0].T
-      outDict['dirdown_flux'] = np.array(downDir)[1:, :].T
-      outDict['dirdown_flux_BB'] = np.array(downDir)[0].T
+      outDict['difdown_flux'] = np.array(downDif)[1:, ::-1].T
+      outDict['difdown_flux_BB'] = np.array(downDif)[0].T[::-1]
+      outDict['dirdown_flux'] = np.array(downDir)[1:, ::-1].T
+      outDict['dirdown_flux_BB'] = np.array(downDir)[0].T[::-1]
     # end SW
 
     # spectrally sort the band data (not broadband)
@@ -320,25 +321,19 @@ class rrtmg():
     sub.call(swCmd)
 
     # now edit the copies with profile data
-    #print(self.combinedSW.keys())
 
-    # for now, we'll ignore heating rate because the RRTMG output is 
-    # on levels and the RRTMGP output is on layers
-    tempFields = self.ncFieldsLW
-    fields = list(tempFields)
-    fields.remove(tempFields[0])
-    fields.remove(tempFields[9])
+    fields = [self.ncFieldsLW, self.ncFieldsSW]
+    combined = [self.combinedLW, self.combinedSW]
 
     lwObj = nc.Dataset(self.ncOutLW, 'r+')
     swObj = nc.Dataset(self.ncOutSW, 'r+')
+    ncObj = [lwObj, swObj]
 
-    print(np.array(lwObj.variables['flux_up']))
-    print()
-    print(self.combinedLW['flux_up'])
-    #for field in fields:
-    #  print(field)
-    #  lwObj.variables[field][:] == self.combinedLW[field]
-    # end fields loop
+    for field, combine, nco in zip(fields, combined, ncObj):
+      for ncVar in field:
+        nco.variables[ncVar][:] = combine[ncVar]
+      # end fields loop
+    # end SW/LW loop
 
     lwObj.close()
     swObj.close()
