@@ -524,6 +524,7 @@ if __name__ == '__main__':
       suffix=args.suffix, ncCopyPath=ncCopy)
     rrtmgObj.writeNC()
   elif ncMode == 'rfmip':
+    # generate a separate rrtmg object for each RFMIP experiment
     rfmipObj = []
     for iProf in range(1, 19):
       lwDirEx = '%s/RFMIP_experiment_%02d' % (lwDir, iProf)
@@ -537,26 +538,12 @@ if __name__ == '__main__':
         upwelling=args.upwelling)
       rfmipObj.append(rrtmgObj)
     # end profile loop
+
+    # combine fluxes for all expereiments and then write the 
+    # RFMIP netCDF files
     rrtmgObj.combineRFMIP(rfmipObj)
     rrtmgObj.writeNC()
+
   # endif ncMode
-
-  # did sanity checks for all fluxes and HR in Garand 1, all bands
-  # LW sanity check
-  #print(rrtmgObj.fluxesLW['profile001']['net_flux_BB'])
-  """
-  print(rrtmgObj.fluxesLW['profile001']['net_flux'][0])
-  print()
-  print(rrtmgObj.fluxesLW['profile001']['net_flux'][-1])
-  """
-
-  # SW sanity check
-  #print(rrtmgObj.fluxesSW['profile001']['heat_rate_BB'])
-  """
-  print(rrtmgObj.fluxesSW['profile001']['heat_rate'][0])
-  print()
-  print(rrtmgObj.fluxesSW['profile001']['heat_rate'][-1])
-  """
-
 # end main()
 
