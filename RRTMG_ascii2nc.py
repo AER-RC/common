@@ -240,7 +240,7 @@ class rrtmg():
         ([] for i in range(6))
 
       # loop over profiles
-      for iKey, key in enumerate(fDict.keys()):
+      for iKey, key in enumerate(sorted(fDict.keys())):
         pLev.append(fDict[key]['level_pressures'])
 
         if self.profiles == 'garand':
