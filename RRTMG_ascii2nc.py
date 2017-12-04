@@ -211,13 +211,18 @@ class rrtmg():
       outDict['dirdown_flux_BB'] = np.array(downDir)[0].T[::-1]
     # end SW
 
-    # spectrally sort the band data (not broadband)
+    # spectrally sort the band data (not broadband) and 
+    # flip the net flux definition from up-down to down-up 
+    # (RRTMGP convention)
     iSort = np.argsort(outDict['wavenumber'][:, 0])
     for key in outDict.keys():
+      if 'net' in key: outDict[key] *= -1
+
       if 'BB' in key: continue
       if key in ['wavenumber', 'level_pressures']: continue
       outDict[key] = outDict[key][:, iSort]
     # end key loop
+
     outDict['wavenumber'] = outDict['wavenumber'][iSort, :]
 
     return outDict
