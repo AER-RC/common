@@ -1,6 +1,7 @@
 import os, sys
 import numpy as np
 import subprocess as sub
+import logging
 
 def spawn(cmd):
   """
@@ -30,8 +31,11 @@ def file_check(path):
   """
   Quick check if path exists.  Use before reading a file.
   """
+
   if not os.path.exists(path):
-    sys.exit('Could not find %s, returning' % path)
+    logging.error('Could not find %s, returning' % path)
+    sys.exit()
+  # endif path
 # end file_check()
 
 def no_overwrite(path):
