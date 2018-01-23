@@ -66,7 +66,7 @@ def readTAPE7(inFile):
   # the number of "layer lines" is dependent on the number of 
   # molecules. the convention is dictated by Record 2.1.2 in the 
   # LBLRTM instructions HTML file (8 molecules per line)
-  # nLayLines = P/T line + Mixing Ratios lines
+  # nLayLines = P/T line + Mixing Ratios lines (records 2.1.1 + 2.1.2)
   if nMol <= 7:
     nLayLines = 2
   else:
