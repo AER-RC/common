@@ -55,52 +55,54 @@ def readTAPE7(inFile):
   record21 = datT7[0]
   profile = datT7[1:]
 
-  iForm = int(record21[1])
-  nLay = int(record21[2:5])
-  nMol = int(record21[5:10])
-  secnto = float(record21[10:20])
-  h1 = float(record21[40:48])
-  h2 = float(record21[52:60])
-  sza = float(record21[65:73])
+  iForm = int(stringSlice(record21, np.array([1])))
+  nLay = int(stringSlice(record21, np.array([2, 5])))
+  nMol = int(stringSlice(record21, np.array([5, 10])))
+  secnto = float(stringSlice(record21, np.array([10, 20])))
+  h1 = float(stringSlice(record21, np.array([40, 48])))
+  h2 = float(stringSlice(record21, np.array([52, 60])))
+  sza = float(stringSlice(record21, np.array([65, 73])))
 
   # the number of "layer lines" is dependent on the number of 
   # molecules. the convention is dictated by Record 2.1.2 in the 
   # LBLRTM instructions HTML file (8 molecules per line)
   # nLayLines = P/T line + Mixing Ratios lines (records 2.1.1 + 2.1.2)
   if nMol <= 7:
-    nLayLines = 2
+    nLayLines = 1
   else:
     # +1 for the broadener ("molecule" 8)
-    nLayLines = np.ceil(nMol+1 / 8.0) + 1
-    sys.exit('THIS NEEDS TO BE TESTED')
+    nLayLines = np.ceil((nMol+1)/8.0)
   # endif nMol
+
+  # for the P/H/T line
+  nLayLines += 1 
 
   # how the data are read (i.e., array slicing) depends on iForm
   # this is record 2.1.1
   if iForm == 0:
-    ipLay = np.arange(10)
-    itLay = np.arange(10, 21)
-    iSecant = np.arange(21, 30)
-    iType = np.arange(30, 33)
-    iPath = np.arange(33, 35)
-    iAlt1 = np.arange(36, 43)
-    ipLev1 = np.arange(43, 51)
-    itLev1 = np.arange(51, 58)
-    iAlt2 = np.arange(58, 65)
-    ipLev2 = np.arange(65, 73)
-    itLev2 = np.arange(73, 80)
+    ipLay = np.array([10])
+    itLay = np.array([10, 21])
+    iSecant = np.array([21, 30])
+    iType = np.array([30, 33])
+    iPath = np.array([33, 35])
+    iAlt1 = np.array([36, 43])
+    ipLev1 = np.array([43, 51])
+    itLev1 = np.array([51, 58])
+    iAlt2 = np.array([58, 65])
+    ipLev2 = np.array([65, 73])
+    itLev2 = np.array([73, 80])
   else:
-    ipLay = np.arange(15)
-    itLay = np.arange(15, 25)
-    iSecant = np.arange(25, 35)
-    iType = np.arange(35, 38)
-    iPath = np.arange(38, 40)
-    iAlt1 = np.arange(41, 48)
-    ipLev1 = np.arange(48, 56)
-    itLev1 = np.arange(56, 63)
-    iAlt2 = np.arange(63, 70)
-    ipLev2 = np.arange(70, 78)
-    itLev2 = np.arange(78, 85)
+    ipLay = np.array([15])
+    itLay = np.array([15, 25])
+    iSecant = np.array([25, 35])
+    iType = np.array([35, 38])
+    iPath = np.array([38, 40])
+    iAlt1 = np.array([41, 48])
+    ipLev1 = np.array([48, 56])
+    itLev1 = np.array([56, 63])
+    iAlt2 = np.array([63, 70])
+    ipLev2 = np.array([70, 78])
+    itLev2 = np.array([78, 85])
   # endif iForm
 
   # assemble lists for each profile parameter
@@ -108,7 +110,8 @@ def readTAPE7(inFile):
     ([] for i in range(8))
 
   # molecule volume mixing ratios will first be a list of lists
-  vmr = []
+  # "sub" VMR is a subset of all VMRs for a given layer
+  vmr, subVMR = [], []
   for iLine, line in enumerate(profile):
     if iLine % nLayLines == 0:
       # layer P/T/Z info
@@ -128,11 +131,15 @@ def readTAPE7(inFile):
       altLev.append(stringSlice(line, iAlt2))
       pLev.append(stringSlice(line, ipLev2))
       tLev.append(stringSlice(line, itLev2))
+
+      # reset this guy every layer
+      subVMR = []
     else:
       # layer molecule amounts
-      vmr.append(line.split())
-      #if iLine % nLayLines == 1:
-      # end modulo 1
+      subVMR += line.split()
+
+      # are we on the last line of the layer?
+      if iLine % nLayLines == nLayLines-1: vmr.append(subVMR)
     # end modulo 0
   # end layer loop
 
