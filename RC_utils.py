@@ -1,6 +1,176 @@
 import os, sys
 import numpy as np
 
+def readTAPE7(inFile):
+  """
+  Read in a single TAPE7 (LBLRTM profile/layer amounts as calculated 
+  by LBLATM subroutine) and return parameters in dictionary
+
+  Call
+    outDict = readTAPE7(inFile)
+
+  Input
+    inFile -- string, path to TAPE7 file
+
+  Output
+    outDict -- dictionary with the following keys:
+      format: int, pressure format specification
+      n_layers: int, number of layers
+      n_molecules: int, number of molecules specified in profile
+      scale_factor: float array, secant scaling factor (nLayers)
+      end_alt: float array, instrument altitude
+      obs_alt: float array, observer altitude
+      SZA: float, solar zenith angle
+
+      p_lay: float array, average pressure of given layer (nLayers)
+      T_lay: float array, average temperature of given layer (nLayers)
+      type_lay: int array, path type
+      path_lay: int array, direction of path (nLayers)
+
+      p_lev: float array, pressure at layer boundaries (nLevels)
+      alt_lev: float array, altitudes at layer bounds (nLevels)
+      T_lev: float array, temperature at layer bounds (nLevels)
+
+      scale_factor_lay: float array, secant scaling factor for each
+        layer (nLayers)
+      vmr: float array, mixing ratio for each gas at each layer 
+        (nMol-1 x nLayer; the -1 is for the broadening density)
+  """
+
+  def stringSlice(inStr, idxArr):
+    """
+    Return substring of inStr that spans indices from idxArr
+    """
+
+    outStr = inStr[idxArr.min():idxArr.max()+1]
+
+    # if it's an empty string, replace with zero
+    outStr = 0 if len(outStr.strip()) == 0 else outStr
+
+    return outStr
+  # end stringSlice()
+
+  # skip header of TAPE7, keep everything else
+  datT7 = open(inFile).read().splitlines()[1:]
+  record21 = datT7[0]
+  profile = datT7[1:]
+
+  iForm = int(stringSlice(record21, np.array([1])))
+  nLay = int(stringSlice(record21, np.array([2, 5])))
+  nMol = int(stringSlice(record21, np.array([5, 10])))
+  secnto = float(stringSlice(record21, np.array([10, 20])))
+  h1 = float(stringSlice(record21, np.array([40, 48])))
+  h2 = float(stringSlice(record21, np.array([52, 60])))
+  sza = float(stringSlice(record21, np.array([65, 73])))
+
+  # the number of "layer lines" is dependent on the number of 
+  # molecules. the convention is dictated by Record 2.1.2 in the 
+  # LBLRTM instructions HTML file (8 molecules per line)
+  # nLayLines = P/T line + Mixing Ratios lines (records 2.1.1 + 2.1.2)
+  if nMol <= 7:
+    nLayLines = 1
+  else:
+    # +1 for the broadener ("molecule" 8)
+    nLayLines = np.ceil((nMol+1)/8.0)
+  # endif nMol
+
+  # for the P/H/T line
+  nLayLines += 1 
+
+  # how the data are read (i.e., array slicing) depends on iForm
+  # this is record 2.1.1
+  if iForm == 0:
+    ipLay = np.array([10])
+    itLay = np.array([10, 21])
+    iSecant = np.array([21, 30])
+    iType = np.array([30, 33])
+    iPath = np.array([33, 35])
+    iAlt1 = np.array([36, 43])
+    ipLev1 = np.array([43, 51])
+    itLev1 = np.array([51, 58])
+    iAlt2 = np.array([58, 65])
+    ipLev2 = np.array([65, 73])
+    itLev2 = np.array([73, 80])
+  else:
+    ipLay = np.array([15])
+    itLay = np.array([15, 25])
+    iSecant = np.array([25, 35])
+    iType = np.array([35, 38])
+    iPath = np.array([38, 40])
+    iAlt1 = np.array([41, 48])
+    ipLev1 = np.array([48, 56])
+    itLev1 = np.array([56, 63])
+    iAlt2 = np.array([63, 70])
+    ipLev2 = np.array([70, 78])
+    itLev2 = np.array([78, 85])
+  # endif iForm
+
+  # assemble lists for each profile parameter
+  pLay, tLay, scaleLay, typeLay, pathLay, altLev, pLev, tLev = \
+    ([] for i in range(8))
+
+  # molecule volume mixing ratios will first be a list of lists
+  # "sub" VMR is a subset of all VMRs for a given layer
+  vmr, subVMR = [], []
+  for iLine, line in enumerate(profile):
+    if iLine % nLayLines == 0:
+      # layer P/T/Z info
+      pLay.append(stringSlice(line, ipLay))
+      tLay.append(stringSlice(line, itLay))
+      scaleLay.append(stringSlice(line, iSecant))
+      typeLay.append(stringSlice(line, iType))
+      pathLay.append(stringSlice(line, iPath))
+
+      if iLine == 0:
+        # the first layer has the info for the first 2 boundaries
+        altLev.append(stringSlice(line, iAlt1))
+        pLev.append(stringSlice(line, ipLev1))
+        tLev.append(stringSlice(line, itLev1))
+      # endif iLine
+
+      altLev.append(stringSlice(line, iAlt2))
+      pLev.append(stringSlice(line, ipLev2))
+      tLev.append(stringSlice(line, itLev2))
+
+      # reset this guy every layer
+      subVMR = []
+    else:
+      # layer molecule amounts
+      subVMR += line.split()
+
+      # are we on the last line of the layer?
+      if iLine % nLayLines == nLayLines-1: vmr.append(subVMR)
+    # end modulo 0
+  # end layer loop
+
+  # convert lists to arrays
+  pLay, tLay, scaleLay, typeLay, pathLay, altLev, pLev, tLev, vmr = \
+    np.array(pLay), np.array(tLay), np.array(scaleLay), \
+    np.array(typeLay), np.array(pathLay), np.array(altLev), \
+    np.array(pLev), np.array(tLev), np.array(vmr)
+
+  outDict = {'n_layers': nLay, 'n_molecules': nMol, 'format': iForm, \
+    'scale_factor': secnto, 'obs_alt': h1, 'end_alt': h2, 'SZA': sza}
+
+  # extract broadening density from molecule VMR and transpose VMR
+  # so it is nMol x nLay
+  iBroad = 7
+  broadener = vmr[:, iBroad]
+  iVMR = np.delete(np.arange(nMol+1), iBroad)
+  vmr = vmr[:, iVMR].T
+
+  # make a list of all lists, loop through it, and convert all lists
+  # to arrays of the proper type and stuff them into outDict
+  dictKeys = ['p_lay', 'T_lay', 'scale_factor_lay', 'type_lay', \
+    'path_lay', 'alt_lev', 'p_lev', 'T_lev', 'vmr', 'broadener']
+  tempList = [pLay, tLay, scaleLay, typeLay, pathLay, altLev, \
+    pLev, tLev, vmr, broadener]
+  for iKey, temp in enumerate(tempList):
+    outDict[dictKeys[iKey]] = temp.astype(float)
+
+  return outDict
+# end readTAPE7
+
 def readTAPE28(inFile, nSkip=52):
   """
   Read in a single TAPE28 (LBLRTM Brightness Temperature output file)
