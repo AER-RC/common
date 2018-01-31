@@ -213,9 +213,9 @@ class genTAPE3():
         # call LNFL and save TAPE3 to unique name
         sub.call(['lnfl'])
         if self.isoH2O:
-          tape3 = '%s/TAPE3_%s' % (self.dirT3, os.path.basename(tape1))
+          tape3 = '%s/TAPE3_%s' % (mol, os.path.basename(tape1))
         else:
-          tape3 = '%s/TAPE3_%s' % (self.dirT3, base)
+          tape3 = '%s/TAPE3_%s' % (mol, base)
         # endif wv
         if os.path.exists(tape3):
           print('WARNING: overwriting %s' % tape3)
@@ -225,7 +225,7 @@ class genTAPE3():
         self.cleanUp()
       # end TAPE1 loop
 
-      self.cleanUp()
+      #self.cleanUp()
       # if we're doing WV isotopologues, *only* do them
       if self.isoH2O: return
     # end molecule loop
@@ -255,13 +255,24 @@ if __name__ == '__main__':
   parser.add_argument('-wn', '--wavenum_lims', nargs=2, \
     type=float, default=[500, 3500], \
     help='Wavenumber limits (cm-1) for TAPE3 (after LNFL run)')
+  parser.add_argument('-5', '--only_tape5', action='store_true', \
+    help='Only write the TAPE5s (no LNFL run).')
+  parser.add_argument('-3', '--only_tape3', action='store_true', \
+    help='Run LNFL without first making the TAPE5s.')
   args = parser.parse_args()
 
   tape3 = genTAPE3(lineFileDir=args.build_dir, \
     lnflPath=args.lnfl_path, wnBounds=args.wavenum_lims, \
     tape5Dir=args.tape5_dir, tape3Dir=args.tape3_dir, \
     wvIso=args.water_vapor)
-  #tape3.makeTAPE5()
-  tape3.runLNFL()
+
+  if args.only_tape5:
+    tape3.makeTAPE5()
+  elif args.only_tape3:
+    tape3.runLNFL()
+  else:
+    tape3.makeTAPE5()
+    tape3.runLNFL()
+  # endif
 # endif main()
 
