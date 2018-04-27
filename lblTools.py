@@ -353,7 +353,7 @@ def readTape12(fileName, double=False, fType=0):
           (v1, v2, dv, nPanel) = struct.unpack(lfmt, buff)
           data = fortranFile.readDoubleVector() if double else \
             fortranFile.readFloatVector()
-          print len(data), ctr
+          #print len(data), ctr
           ctr += 1
 
           # concatenate (NOT append) onto output

@@ -174,3 +174,12 @@ def check_CR2():
   del np
 # end check_CR2()
 
+def check_py3():
+  """
+  Check if use is using Python 3 instead of Python 2 (which is what 
+  AER originally was using in the Corporate Release)
+  """
+
+  return sys.version_info > (3, 0)
+# end check_py3()
+
