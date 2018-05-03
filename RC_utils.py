@@ -1,6 +1,29 @@
 import os, sys
 import numpy as np
 
+class constants():
+  def __init__(self, cgs=False):
+    """
+    Just a bunch of physical constants that we'll use at some point
+    """
+
+    # all attributes in mks units
+    self.kB = 1.38064852e-23 # Boltzman's
+    self.g = 9.80665 # acceleration due to gravity
+    self.R = 287.058 # dry-air gas constant
+    self.nA = 6.022140857e23 # Avogadro's number
+
+    if cgs: self.mks2cgs()
+
+  # end constructor
+
+  def mks2cgs(self):
+    self.kB = 1.38064852e-16 # Boltzman's
+    self.g = 980.665 # acceleration due to gravity
+    self.R = 287.058e4 # dry-air gas constant
+  # end mks2cgs
+# end constants
+
 def readTAPE7(inFile):
   """
   Read in a single TAPE7 (LBLRTM profile/layer amounts as calculated 
