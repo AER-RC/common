@@ -10,8 +10,15 @@ class constants():
     # all attributes in mks units
     self.kB = 1.38064852e-23 # Boltzman's
     self.g = 9.80665 # acceleration due to gravity
-    self.R = 287.058 # dry-air gas constant
+    self.R = 2.87058e2 # dry-air gas constant
     self.nA = 6.022140857e23 # Avogadro's number
+    self.c = 2.99792458e8 # speed of light, vaccum
+
+    # wet and dry masses are from a KCP script check_wtot2.pro
+    # they were used for RFMIP layer density calculations since we 
+    # wanted to use hydrostatics and not the ideal gas law
+    self.mH2O = 1.8016e-2 
+    self.mDry = 2.8964e-2
 
     if cgs: self.mks2cgs()
 
@@ -19,8 +26,13 @@ class constants():
 
   def mks2cgs(self):
     self.kB = 1.38064852e-16 # Boltzman's
-    self.g = 980.665 # acceleration due to gravity
-    self.R = 287.058e4 # dry-air gas constant
+    self.g = 9.80665e2 # acceleration due to gravity
+    self.R = 2.87058e6 # dry-air gas constant
+    self.c = 2.99792458e10 # speed of light, vaccum
+    self.mH2O = 1.8016e1
+    self.mDry = 2.8964e1
+
+    return self
   # end mks2cgs
 # end constants
 
