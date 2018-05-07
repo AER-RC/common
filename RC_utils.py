@@ -13,6 +13,7 @@ class constants():
     self.R = 2.87058e2 # dry-air gas constant
     self.nA = 6.022140857e23 # Avogadro's number
     self.c = 2.99792458e8 # speed of light, vaccum
+    self.SB = 5.67051e-8 # Stefan-Boltzman (Wm-2K-4)
 
     # wet and dry masses are from a KCP script check_wtot2.pro
     # they were used for RFMIP layer density calculations since we 
@@ -31,6 +32,7 @@ class constants():
     self.c = 2.99792458e10 # speed of light, vaccum
     self.mH2O = 1.8016e1
     self.mDry = 2.8964e1
+    self.SB = 5.67051e-5 # Stefan-Boltzman
 
     return self
   # end mks2cgs
