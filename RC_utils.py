@@ -533,6 +533,8 @@ def fluxToHR(flux):
 
   Input
     flux -- float array, fluxes in Wm-2
+    ASSUMED TO BE NLAY X NPROFILE X NBAND! or at least NLAY is first
+    dimension
 
   Output
     hr -- float array, corresponding heating rates in T day-1
@@ -540,6 +542,6 @@ def fluxToHR(flux):
 
   conObj = constants()
 
-  return (np.diff(flux) / conObj.SB)**(1/4.) / conObj.sPerDay
+  return (np.diff(flux, axis=0) / conObj.SB)**(1/4.) / conObj.sPerDay
 # end fluxToHR()
 
