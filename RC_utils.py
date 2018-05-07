@@ -14,6 +14,7 @@ class constants():
     self.nA = 6.022140857e23 # Avogadro's number
     self.c = 2.99792458e8 # speed of light, vaccum
     self.SB = 5.67051e-8 # Stefan-Boltzman (Wm-2K-4)
+    self.sPerDay = 60 * 60 * 24 # seconds per day
 
     # wet and dry masses are from a KCP script check_wtot2.pro
     # they were used for RFMIP layer density calculations since we 
@@ -525,4 +526,20 @@ def wvAmtTAPE6(inTAPE6):
 
   return wvLayAmt
 # end wvAmtTAPE6
+
+def fluxToHR(flux):
+  """
+  Flux-to-heating rate calculation using the Stefan Boltzman law
+
+  Input
+    flux -- float array, fluxes in Wm-2
+
+  Output
+    hr -- float array, corresponding heating rates in T day-1
+  """
+
+  conObj = constants()
+
+  return (flux / conObj.SB)**(1/4.) * conObj.sPerDay
+# end fluxToHR()
 
