@@ -540,6 +540,6 @@ def fluxToHR(flux):
 
   conObj = constants()
 
-  return (flux / conObj.SB)**(1/4.) * conObj.sPerDay
+  return (np.diff(flux) / conObj.SB)**(1/4.) / conObj.sPerDay
 # end fluxToHR()
 
