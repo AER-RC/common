@@ -12,6 +12,7 @@ class constants():
     self.g = 9.80665 # acceleration due to gravity
     self.R = 287.058 # dry-air gas constant
     self.nA = 6.022140857e23 # Avogadro's number
+    self.SB = 5.67051e-8 # Stefan-Boltzman (Wm-2K-4)
 
     if cgs: self.mks2cgs()
 
@@ -21,6 +22,7 @@ class constants():
     self.kB = 1.38064852e-16 # Boltzman's
     self.g = 980.665 # acceleration due to gravity
     self.R = 287.058e4 # dry-air gas constant
+    self.SB = 5.67051e-5 # Stefan-Boltzman
   # end mks2cgs
 # end constants
 
