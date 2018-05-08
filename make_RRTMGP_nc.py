@@ -339,7 +339,7 @@ if __name__ == '__main__':
     'optimized to handle RFMIP profiles and has not been tested ' + \
     'with other (e.g., Garand) specifications.')
   parser.add_argument('--ini_file', '-ini', type=str, \
-    default='make_RRTMGP_nc.ini', \
+    default='sw_make_RRTMGP_nc.ini', \
     help='Configuration file with specs for ncRRTMGP class.' )
   args = parser.parse_args()
 
