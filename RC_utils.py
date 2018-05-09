@@ -429,7 +429,12 @@ def radsumRead(inFile):
     # end exception
 
     # RADSUM output processing
-    pLev.append(float(split[1]))
+    # sometimes radsum has bad pressures because of string formatting
+    try:
+      pLev.append(float(split[1]))
+    except:
+      pLev.append(np.nan)
+
     upFlux.append(float(split[2]))
     dnFlux.append(float(split[3]))
     netFlux.append(float(split[4]))
