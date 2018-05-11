@@ -153,27 +153,44 @@ class swRRTMGP():
     outVar.units = 'cm-1'
     outVar[:] = np.array(inVar)
 
-    # there is no band dependence on pressures, so store them now
+    # there is no band dependence on P or TSI, so store them now
     inVarLev = inObj.variables['p_lev']
     inVarLay = inObj.variables['p_lay']
+    inVarTSI = inObj.variables['total_solar_irradiance']
     if self.specs != '':
       specsObj = nc.Dataset(self.specs)
       pLev = np.array(specsObj.variables['pres_level'])
       pLay = np.array(specsObj.variables['pres_layer'])
+      tsi = np.array(specsObj.variables['total_solar_irradiance'])
       pUnits = specsObj.variables['pres_level'].units
+      tsiUnits = specsObj.variables['total_solar_irradiance'].units
+      sza = np.array(specsObj.variables['solar_zenith_angle'])
       specsObj.close()
 
-      # right now, i don't have all of the RFMIP profile results, 
-      # so slice what i do have
+      if self.sw:
+        # filter out nighttime profiles for SW
+        # making some assumptions here that iUseProf.size and 
+        # self.nProf are equal, and that there's a 1:1 correspondence
+        iUseProf = np.where(sza < 90)[0]
+        if iUseProf.size == 0: sys.exit('No daytime profiles found')
+      else:
+        iUseProf = np.arange(self.nProf)
+      # endif SW
+
       outVarLev = outObj.createVariable(\
         inVarLev.name, inVarLev.dtype, inVarLev.dimensions)
       outVarLev.units = pUnits
-      outVarLev[:] = pLev.T[:, :self.nProf]
+      outVarLev[:] = pLev.T[:, iUseProf]
 
       outVarLay = outObj.createVariable(\
         inVarLay.name, inVarLay.dtype, inVarLay.dimensions)
       outVarLay.units = pUnits
-      outVarLay[:] = pLay.T[:, :self.nProf]
+      outVarLay[:] = pLay.T[:, iUseProf]
+
+      outVarTSI = outObj.createVariable(\
+        inVarTSI.name, inVarTSI.dtype, inVarTSI.dimensions)
+      outVarTSI.units = tsiUnits
+      outVarTSI[:] = tsi.T[iUseProf]
     else:
       # fill these in eventually
       pLev = np.zeros((self.nLev, self.nProf))
