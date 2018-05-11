@@ -62,6 +62,14 @@ class swRRTMGP():
       config -- configSetup object
 
     Keywords
+      reverseVertical -- boolean, convention is for fluxes, pressures,
+        etc. to go from surface to TOA, but some models (e.g., RADSUM)
+        are reversed, and this keyword makes them conform to the 
+        surface-to-TOA convention
+
+        NOTE: RFMIP specifications go TOA-to-surface, so its 
+          associated arrays (namely, pressures) will always be 
+          reversed in this code
     """
 
     paths = [config.top, config.nctemplate]
@@ -160,6 +168,7 @@ class swRRTMGP():
     outVar[:] = np.array(inVar)
 
     # there is no band dependence on P or TSI, so store them now
+    # and reverse pressures in the vertical direction
     inVarLev = inObj.variables['p_lev']
     inVarLay = inObj.variables['p_lay']
     inVarTSI = inObj.variables['total_solar_irradiance']
@@ -186,14 +195,12 @@ class swRRTMGP():
       outVarLev = outObj.createVariable(\
         inVarLev.name, inVarLev.dtype, inVarLev.dimensions)
       outVarLev.units = pUnits
-      outVarLev[:] = pLev.T[::-1, iUseProf] if self.reverse else \
-        pLev.T[:, iUseProf]
+      outVarLev[:] = pLev.T[::-1, iUseProf]
 
       outVarLay = outObj.createVariable(\
         inVarLay.name, inVarLay.dtype, inVarLay.dimensions)
       outVarLay.units = pUnits
-      outVarLay[:] = pLay.T[::-1, iUseProf] if self.reverse else \
-        pLay.T[:, iUseProf]
+      outVarLay[:] = pLay.T[::-1, iUseProf]
 
       outVarTSI = outObj.createVariable(\
         inVarTSI.name, inVarTSI.dtype, inVarTSI.dimensions)
@@ -573,7 +580,7 @@ if __name__ == '__main__':
     ncRRTMGP.computeBands()
     ncRRTMGP.computeBands(broadband=True)
   else:
-    ncRRTMGP = swRRTMGP(ini, reverseVertical=True)
+    ncRRTMGP = swRRTMGP(ini)
     ncRRTMGP.initializeNC()
     ncRRTMGP.combineArr()
     ncRRTMGP.computeBands()
