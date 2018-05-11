@@ -94,6 +94,10 @@ class swRRTMGP():
       self.outFile = '%s_%s' % (newSub, self.base)
     # endif base
 
+    # fluxes are produced by LBLRTM, so we need to remove any RRTMGP
+    # strings in the output filename
+    self.outFile = self.outFile.replace('rrtmgp', 'lblrtm')
+
     # these three attribute lists have elements that correspond to 
     # each other ('down_direct' : 'band_flux_dir_dn' : 'flux_dir_dn')
     # but there's no reason to have RRTMGP wavenumbers because of 
@@ -422,6 +426,10 @@ class lwRRTMGP(swRRTMGP):
     else:
       self.outFile = '%s_%s' % (newSub, self.base)
     # endif base
+
+    # fluxes are produced by LBLRTM, so we need to remove any RRTMGP
+    # strings in the output filename
+    self.outFile = self.outFile.replace('rrtmgp', 'lblrtm')
 
     # these three attribute lists have elements that correspond to 
     # each other ('down_flux' : 'band_flux_dn' : 'flux_dn')
