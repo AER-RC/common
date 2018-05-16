@@ -256,6 +256,40 @@ def readTAPE27(inFile, nSkip=52):
     nSkip -- int, the number of lines in the header
   """
 
+  # probably want something like this, from my ABSCO_diagnostics:
+  """
+  with open(aFile, "rb") as f:
+    # following the procedure i used in xsABSCO.postProcessXS()
+    # when i write the binary that i am currently reading
+
+    # wtf variable
+    dummy = f.read(4)
+
+    # the first 3 "panel headers" that i wrote
+    panelHeader = array.array('d')
+    panelHeader.fromfile(f, 178)
+    wnDat = array.array('d')
+    wnDat.fromfile(f, 3)
+    wnDat = np.array(wnDat)
+    numFreq = array.array('l')
+    numFreq.fromfile(f, 2)
+    nFreq = np.array(numFreq)[0]
+
+    # now read in the ABSCO array, which is dependent on nFreq
+    abscoArr = array.array('d')
+    abscoArr.fromfile(f, nFreq)
+    abscoArr = np.array(abscoArr)
+
+    # don't need any of the rest of the "panel header" garbage
+    # but we do need to make a wavenumber array associated w/ 
+    # absorption coefficients
+    waveNum = np.arange(wnDat[0], wnDat[1]+wnDat[2], wnDat[2])
+
+    # save the spectrum
+    abscoList.append(abscoArr)
+    wnList.append(waveNum)
+  """
+
   # very, very simple function -- maybe just easier to use np.loadtxt
   # directly
   waveNum, rad = np.loadtxt(inFile, unpack=True, skiprows=nSkip)

@@ -1,3 +1,6 @@
+# for Python 3 compatibility
+from __future__ import print_function
+
 import struct
 import types
 
@@ -65,7 +68,7 @@ class FortranFile:
     def writeSpecialFormatVector(self,data,formatString,outputSize):
         buffer=''
         for index,value in enumerate(data):
-            print formatString[index],value
+            print(formatString[index],value)
             if type(value) in [types.ListType,types.TupleType]:
                 for x in value: buffer += struct.pack(formatString[index],x)
             else:
@@ -73,7 +76,7 @@ class FortranFile:
         for index in range(len(buffer),outputSize):buffer+=struct.pack('b',0)
 
         size = struct.pack(self.sizeFormat,(len(buffer)))
-        print len(buffer)
+        print(len(buffer))
         self.file.write(size+buffer+size)
 
     def writeFormatVector(self,data,formatString,outputSize=None):
@@ -157,5 +160,5 @@ def writeReflectance(fileName,v1,v2,dv,reflCoeff):
 if __name__ == '__main__':
     fileName='SOL.REFLECTANCE'
     wn1,wn2,wndv,data=readReflectance(fileName)
-    print wn1,wn2,wndv,len(data),min(data),max(data)
+    print(wn1,wn2,wndv,len(data),min(data),max(data))
 

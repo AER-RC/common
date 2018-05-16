@@ -1,4 +1,8 @@
 #!/usr/bin/python
+
+# for Python 3 compatibility
+from __future__ import print_function
+
 # -*- coding: utf-8 -*-
 import os
 import sys
@@ -477,7 +481,7 @@ def rpReadTape12(fileName, double=False, fType=0):
     if buff:
       if buff and len(buff) == headLen:
         (v1, v2, dv, nPtPanel) = struct.unpack(lfmt, buff)
-        print v1, v2, dv
+        print(v1, v2, dv)
       else:
         data = fortranFile.readDoubleVector() if double else \
           fortranFile.readFloatVector()
@@ -485,7 +489,7 @@ def rpReadTape12(fileName, double=False, fType=0):
     else:
       data = fortranFile.readDoubleVector() if double else \
         fortranFile.readFloatVector()
-      print len(data)
+      print(len(data))
     # endif buff len
 
     break
