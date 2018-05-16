@@ -256,6 +256,35 @@ def readTAPE27(inFile, nSkip=52):
     nSkip -- int, the number of lines in the header
   """
 
+  # very, very simple function -- maybe just easier to use np.loadtxt
+  # directly
+  waveNum, rad = np.loadtxt(inFile, unpack=True, skiprows=nSkip)
+  outDict = {'wavenumber': waveNum , 'brightness_temperature': rad, \
+    'units': '(W cm-2 sr-1)/cm-1'}
+
+  return outDict
+# end readTAPE27
+
+def readBinary(inFile, double=True):
+  """
+  Read LBLRTM binary file (these are special unformatted binary files,
+  written in "panel" format)
+
+  Boo...didn't work with ASTI TAPE11...
+
+  Input
+    inFile -- string, path to binary TAPE (10, 11, 12, 13)
+      output_file from LBLRTM
+
+  Output
+    outWN -- float array, wavenumbers spanning spectrum
+    param -- float array of ODs, radiances, fluxes, transmittances, 
+      or whatever other paramter is extracted from inFile
+
+  Keywords
+    double -- boolean, is inFile in double precision? defaults to yes
+  """
+
   # probably want something like this, from my ABSCO_diagnostics:
   """
   with open(aFile, "rb") as f:
@@ -288,35 +317,6 @@ def readTAPE27(inFile, nSkip=52):
     # save the spectrum
     abscoList.append(abscoArr)
     wnList.append(waveNum)
-  """
-
-  # very, very simple function -- maybe just easier to use np.loadtxt
-  # directly
-  waveNum, rad = np.loadtxt(inFile, unpack=True, skiprows=nSkip)
-  outDict = {'wavenumber': waveNum , 'brightness_temperature': rad, \
-    'units': '(W cm-2 sr-1)/cm-1'}
-
-  return outDict
-# end readTAPE27
-
-def readBinary(inFile, double=True):
-  """
-  Read LBLRTM binary file (these are special unformatted binary files,
-  written in "panel" format)
-
-  Boo...didn't work with ASTI TAPE11...
-
-  Input
-    inFile -- string, path to binary TAPE (10, 11, 12, 13)
-      output_file from LBLRTM
-
-  Output
-    outWN -- float array, wavenumbers spanning spectrum
-    param -- float array of ODs, radiances, fluxes, transmittances, 
-      or whatever other paramter is extracted from inFile
-
-  Keywords
-    double -- boolean, is inFile in double precision? defaults to yes
   """
 
   import FortranFile
