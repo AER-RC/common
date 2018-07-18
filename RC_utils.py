@@ -39,7 +39,7 @@ class constants():
   # end mks2cgs
 # end constants
 
-def readTAPE7(inFile):
+def readTAPE7(inFile, xsTAPE7=False):
   """
   Read in a single TAPE7 (LBLRTM profile/layer amounts as calculated 
   by LBLATM subroutine) and return parameters in dictionary
@@ -73,6 +73,16 @@ def readTAPE7(inFile):
         layer (nLayers)
       vmr: float array, mixing ratio for each gas at each layer 
         (nMol-1 x nLayer; the -1 is for the broadening density)
+
+  Keywords
+    xsTAPE7 -- boolean, XS TAPE7 files are a bit different because t
+      there are effectively 2 sections (HITRAN molecule section, XS 
+      molecule section). this keyword forces outDict to contain two 
+      additional keys:
+
+        xs_names -- string array, names of all selected XS molecules
+        xs_den -- float array, densities for all selected XS molecules
+          (nXS x nLayer dimensions)
   """
 
   def stringSlice(inStr, idxArr):
@@ -96,7 +106,7 @@ def readTAPE7(inFile):
   iForm = int(stringSlice(record21, np.array([1])))
   nLay = int(stringSlice(record21, np.array([2, 5])))
   nMol = int(stringSlice(record21, np.array([5, 10])))
-  secnto = float(stringSlice(record21, np.array([10, 20])))
+  secnto = float(stringSlice(record21, np.array([10, 19])))
   h1 = float(stringSlice(record21, np.array([40, 48])))
   h2 = float(stringSlice(record21, np.array([52, 60])))
   sza = float(stringSlice(record21, np.array([65, 73])))
@@ -118,7 +128,7 @@ def readTAPE7(inFile):
   # how the data are read (i.e., array slicing) depends on iForm
   # this is record 2.1.1
   if iForm == 0:
-    ipLay = np.array([10])
+    ipLay = np.array([0, 10])
     itLay = np.array([10, 21])
     iSecant = np.array([21, 30])
     iType = np.array([30, 33])
@@ -130,7 +140,7 @@ def readTAPE7(inFile):
     ipLev2 = np.array([65, 73])
     itLev2 = np.array([73, 80])
   else:
-    ipLay = np.array([15])
+    ipLay = np.array([0, 15])
     itLay = np.array([15, 25])
     iSecant = np.array([25, 35])
     iType = np.array([35, 38])
@@ -143,6 +153,8 @@ def readTAPE7(inFile):
     itLev2 = np.array([78, 85])
   # endif iForm
 
+  doXS = False
+
   # assemble lists for each profile parameter
   pLay, tLay, scaleLay, typeLay, pathLay, altLev, pLev, tLev = \
     ([] for i in range(8))
@@ -151,7 +163,39 @@ def readTAPE7(inFile):
   # "sub" VMR is a subset of all VMRs for a given layer
   vmr, subVMR = [], []
   for iLine, line in enumerate(profile):
+    if 'CROSS-SECTIONS' in line:
+      # start of cross section part of the profile
+      xsLine = int(iLine)
+      doXS = True
+      nXS = int(line.split()[0])
+      nLayLines = np.ceil((nXS+1)/8.0)
+      print(nLayLines)
+
+      # reset all of the arrays; these guys should not change WRT
+      # the HITRAN molecule section
+      pLay, tLay, scaleLay, typeLay, pathLay, altLev, pLev, tLev = \
+        ([] for i in range(8))
+      vmr, subVMR = [], []
+
+      # now proceed just like HITRAN section
+      continue
+    # endif XS
+
+    if doXS:
+      # the line after the XS header is also different from the HITRAN
+      # section and contains the XS species names
+
+      if iLine == xsLine+1:
+        xsNames = line.split()
+        if 'OTHER' in xsNames: xsNames.remove('OTHER')
+        continue
+      # endif iLine
+    # endif XS
+
     if iLine % nLayLines == 0:
+      # keep the HITRAN section data instead of the XS
+      if doXS: continue
+
       # layer P/T/Z info
       pLay.append(stringSlice(line, ipLay))
       tLay.append(stringSlice(line, itLay))
@@ -175,9 +219,15 @@ def readTAPE7(inFile):
     else:
       # layer molecule amounts
       subVMR += line.split()
+      #print(line.split(), iLine % nLayLines)
 
       # are we on the last line of the layer?
-      if iLine % nLayLines == nLayLines-1: vmr.append(subVMR)
+      # seems like a hack...
+      if nLayLines == 1:
+        if iLine % nLayLines == nLayLines: vmr.append(subVMR)
+      else:
+        if iLine % nLayLines == nLayLines-1: vmr.append(subVMR)
+      # endif nLayLines
     # end modulo 0
   # end layer loop
 
@@ -186,6 +236,8 @@ def readTAPE7(inFile):
     np.array(pLay), np.array(tLay), np.array(scaleLay), \
     np.array(typeLay), np.array(pathLay), np.array(altLev), \
     np.array(pLev), np.array(tLev), np.array(vmr)
+
+  print(vmr)
 
   outDict = {'n_layers': nLay, 'n_molecules': nMol, 'format': iForm, \
     'scale_factor': secnto, 'obs_alt': h1, 'end_alt': h2, 'SZA': sza}
@@ -265,12 +317,14 @@ def readTAPE27(inFile, nSkip=52):
   return outDict
 # end readTAPE27
 
-def readBinary(inFile, double=True):
+def readBinary(inFile, double=False):
   """
   Read LBLRTM binary file (these are special unformatted binary files,
-  written in "panel" format)
-
-  Boo...didn't work with ASTI TAPE11...
+  written in "panel" format; and judging by 
+  /project/rc/rc2/mshep/idl/patbrown/read_lbl_file.pro, these files 
+  are unformatted sequential files -- see 
+  https://stackoverflow.com/questions/23377274/how-to-read-fortran-77-unformatted-binary-file-into-python)
+  and http://www.harrisgeospatial.com/docs/Reading_and_Writing_FORT.html
 
   Input
     inFile -- string, path to binary TAPE (10, 11, 12, 13)
@@ -285,16 +339,67 @@ def readBinary(inFile, double=True):
     double -- boolean, is inFile in double precision? defaults to yes
   """
 
-  # probably want something like this, from my ABSCO_diagnostics:
-  """
-  with open(aFile, "rb") as f:
-    # following the procedure i used in xsABSCO.postProcessXS()
-    # when i write the binary that i am currently reading
+  import array
+  from scipy.io import FortranFile
 
-    # wtf variable
-    dummy = f.read(4)
+  format = np.float64 if double else np.float32
+  nPoints = 2 if double else 1
 
-    # the first 3 "panel headers" that i wrote
+  with FortranFile(inFile, "r") as inFP:
+    #header = np.array(['' for i in range(80)])
+    header = inFP.read_record(dtype='80c')
+    print(len(header))
+  # endwith
+  sys.exit()
+
+  header = ''
+  iRec = np.zeros(1, dtype=np.uint32)
+  with open(inFile, "rb") as inFP:
+    iRec = np.fromfile(inFP, dtype='uint32', count=1)
+    print(iRec)
+    header = np.fromfile(inFP, dtype='c', count=80)
+    print(''.join(header))
+    iRec = np.fromfile(inFP, dtype='uint32', count=1)
+    print(iRec)
+    print
+
+    iRec = np.fromfile(inFP, dtype='uint32', count=1)
+    print(iRec)
+    pv1, pv2 = np.fromfile(inFP, dtype=np.float64, count=2)
+    print(pv1, pv2)
+    pdv = np.fromfile(inFP, dtype=format, count=1)
+    print(pdv)
+    iRec = np.fromfile(inFP, dtype='uint32', count=1)
+    print(iRec)
+    print
+
+    iRec = np.fromfile(inFP, dtype='uint32', count=1)
+    print(iRec)
+    np_arr = np.fromfile(inFP, dtype=np.long, count=nPoints)
+    print(np_arr)
+    iRec = np.fromfile(inFP, dtype='uint32', count=1)
+    print(iRec)
+    print
+
+    sys.exit()
+    od = np.fromfile(inFP, dtype=format, count=2400)
+    print(len(header))
+    print(od[:100])
+
+    """
+    panelHeader = array.array(format)
+    panelHeader.fromfile(inFP, 3)
+    print(panelHeader)
+
+    inFP.read_record(dtype='d3')
+
+    panelHeader = array.array(format)
+    panelHeader.fromfile(f, 3)
+    print(panelHeader)
+
+    panelHeader = array.array('l')
+    panelHeader.fromfile(f, np)
+    print(panelHeader)
     panelHeader = array.array('d')
     panelHeader.fromfile(f, 178)
     wnDat = array.array('d')
@@ -317,71 +422,11 @@ def readBinary(inFile, double=True):
     # save the spectrum
     abscoList.append(abscoArr)
     wnList.append(waveNum)
-  """
+    """
+  # endwith
 
-  import FortranFile
-  from lblTools import readTape12
-
-  outWN, param = readTape12(inFile, double=double)
-
-  return np.array(outWN), np.array(param)
+  return #np.array(outWN), np.array(param)
 # end readBinary()
-
-def tempIDL(inFile, fType=0, double=True):
-  """
-  Read in binary TAPE files (inFile), save data to IDL save files, 
-  and then read them with Python for plotting. this is pretty time-
-  consuming
-
-  This is a temporary function until I figure out how to read in 
-  FORTRAN binary files in Python (looks like it can be done -- 
-  https://stackoverflow.com/questions/37534220/python-read-fortran-binary-file)
-
-  Input
-    inFile -- string, path to binary TAPE (10, 11, 12, 13)
-      output_file from LBLRTM
-
-  Output
-
-  Keywords
-    fType -- int, file type (radiance, transmittance, etc.; see doc in
-      /project/rc/rc2/mshep/idl/patbrown/read_lbl_file_dbl.pro)
-    double -- boolean, is inFile in double precision? defaults to yes
-  
-  """
-
-  from scipy.io.idl import readsav
-  import utils
-
-  # write_save_file.pro is in this Git repo:
-  # https://lex-gitlab.aer.com/rpernak/common_modules
-  # and is considered, along with the RC_utils.py and utils.py 
-  # modules, part of the RC common library
-  proFile = 'write_save_file.pro'
-  #if not os.path.exists(proFile):
-  #  os.symlink('externals/common/%s' % proFile, proFile)
-
-  if double:
-    proCall = \
-      "write_save_file, \'%s\', file_type=%d, /dbl" % (inFile, fType)
-  else:
-    proCall = \
-      "write_save_file, \'%s\', file_type=%d" % (inFile, fType)
-  # endif double
-
-  idlCmd = 'idl -e "%s"' % proCall
-  sOut, sErr = utils.spawn(idlCmd)
-
-  # write_save_file.pro always writes a LBLRMT_output.sav file
-  # and contains the wavenum and spectrum arrays
-  tempSav = 'LBLRTM_output.sav'
-  idlDat = readsav(tempSav)
-  waveNum, param = idlDat['wavenum'], idlDat['spectrum']
-  os.remove(tempSav)
-  #os.remove(proFile)
-
-  return {'wavenumber': waveNum, 'spectrum': param}
-# end tempIDL()
 
 def radsumRead(inFile):
   """
