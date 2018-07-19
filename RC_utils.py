@@ -164,12 +164,13 @@ def readTAPE7(inFile, xsTAPE7=False):
   vmr, subVMR = [], []
   for iLine, line in enumerate(profile):
     if 'CROSS-SECTIONS' in line:
+      break
+      # only need the broadener for now, not the XS densities
       # start of cross section part of the profile
       xsLine = int(iLine)
       doXS = True
       nXS = int(line.split()[0])
-      nLayLines = np.ceil((nXS+1)/8.0)
-      print(nLayLines)
+      nLayLines = np.ceil((nXS+1)/8.0) + 1
 
       # reset all of the arrays; these guys should not change WRT
       # the HITRAN molecule section
@@ -189,6 +190,11 @@ def readTAPE7(inFile, xsTAPE7=False):
         xsNames = line.split()
         if 'OTHER' in xsNames: xsNames.remove('OTHER')
         continue
+      else:
+        # treat the XS bit just like the HITRAN profile, which means 
+        # we have to reset the iLine counter (while also taking into
+        # account the TAPE7 XS header)
+        iLine -= (xsLine + 2)
       # endif iLine
     # endif XS
 
@@ -219,14 +225,9 @@ def readTAPE7(inFile, xsTAPE7=False):
     else:
       # layer molecule amounts
       subVMR += line.split()
-      #print(line.split(), iLine % nLayLines)
 
       # are we on the last line of the layer?
-      # seems like a hack...
-      if nLayLines == 1:
-        if iLine % nLayLines == nLayLines: vmr.append(subVMR)
-      else:
-        if iLine % nLayLines == nLayLines-1: vmr.append(subVMR)
+      if iLine % nLayLines == nLayLines-1: vmr.append(subVMR)
       # endif nLayLines
     # end modulo 0
   # end layer loop
@@ -236,8 +237,6 @@ def readTAPE7(inFile, xsTAPE7=False):
     np.array(pLay), np.array(tLay), np.array(scaleLay), \
     np.array(typeLay), np.array(pathLay), np.array(altLev), \
     np.array(pLev), np.array(tLev), np.array(vmr)
-
-  print(vmr)
 
   outDict = {'n_layers': nLay, 'n_molecules': nMol, 'format': iForm, \
     'scale_factor': secnto, 'obs_alt': h1, 'end_alt': h2, 'SZA': sza}
