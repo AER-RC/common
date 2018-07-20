@@ -164,8 +164,6 @@ def readTAPE7(inFile, xsTAPE7=False):
   vmr, subVMR = [], []
   for iLine, line in enumerate(profile):
     if 'CROSS-SECTIONS' in line:
-      break
-      # only need the broadener for now, not the XS densities
       # start of cross section part of the profile
       xsLine = int(iLine)
       doXS = True
@@ -190,17 +188,26 @@ def readTAPE7(inFile, xsTAPE7=False):
         xsNames = line.split()
         if 'OTHER' in xsNames: xsNames.remove('OTHER')
         continue
+      elif iLine == xsLine+2:
+        # this is the same as what i'm calling "record21" at the 
+        # beginning of this function, and it should be identical
+        continue
       else:
         # treat the XS bit just like the HITRAN profile, which means 
         # we have to reset the iLine counter (while also taking into
         # account the TAPE7 XS header)
-        iLine -= (xsLine + 2)
+        iLine -= (xsLine + 3)
       # endif iLine
     # endif XS
 
     if iLine % nLayLines == 0:
-      # keep the HITRAN section data instead of the XS
-      if doXS: continue
+      # for state information (P, T, etc.), keep the HITRAN section 
+      # data instead of the XS
+      if doXS:
+        # reset this guy every layer
+        subVMR = []
+        continue
+      # end XS
 
       # layer P/T/Z info
       pLay.append(stringSlice(line, ipLay))
@@ -228,7 +235,6 @@ def readTAPE7(inFile, xsTAPE7=False):
 
       # are we on the last line of the layer?
       if iLine % nLayLines == nLayLines-1: vmr.append(subVMR)
-      # endif nLayLines
     # end modulo 0
   # end layer loop
 
