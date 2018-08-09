@@ -44,6 +44,8 @@ def readTAPE7(inFile, xsTAPE7=False):
   Read in a single TAPE7 (LBLRTM profile/layer amounts as calculated 
   by LBLATM subroutine) and return parameters in dictionary
 
+  WARNING: XS functionality has not been thoroughly tested
+
   Call
     outDict = readTAPE7(inFile)
 
@@ -170,11 +172,7 @@ def readTAPE7(inFile, xsTAPE7=False):
       nXS = int(line.split()[0])
       nLayLines = np.ceil((nXS+1)/8.0) + 1
 
-      # reset all of the arrays; these guys should not change WRT
-      # the HITRAN molecule section
-      pLay, tLay, scaleLay, typeLay, pathLay, altLev, pLev, tLev = \
-        ([] for i in range(8))
-      vmr, subVMR = [], []
+      xsVMR, xsSubVMR = [], []
 
       # now proceed just like HITRAN section
       continue
@@ -205,7 +203,7 @@ def readTAPE7(inFile, xsTAPE7=False):
       # data instead of the XS
       if doXS:
         # reset this guy every layer
-        subVMR = []
+        xsSubVMR = []
         continue
       # end XS
 
@@ -230,11 +228,19 @@ def readTAPE7(inFile, xsTAPE7=False):
       # reset this guy every layer
       subVMR = []
     else:
-      # layer molecule amounts
-      subVMR += line.split()
+      if doXS:
+        # layer molecule amounts
+        xsSubVMR += line.split()
 
-      # are we on the last line of the layer?
-      if iLine % nLayLines == nLayLines-1: vmr.append(subVMR)
+        # are we on the last line of the layer?
+        if iLine % nLayLines == nLayLines-1: xsVMR.append(xsSubVMR)
+      else:
+        # layer molecule amounts
+        subVMR += line.split()
+
+        # are we on the last line of the layer?
+        if iLine % nLayLines == nLayLines-1: vmr.append(subVMR)
+      # endif doXS
     # end modulo 0
   # end layer loop
 
@@ -260,6 +266,16 @@ def readTAPE7(inFile, xsTAPE7=False):
     'path_lay', 'alt_lev', 'p_lev', 'T_lev', 'vmr', 'broadener']
   tempList = [pLay, tLay, scaleLay, typeLay, pathLay, altLev, \
     pLev, tLev, vmr, broadener]
+
+  if doXS:
+    xsVMR = np.array(xsVMR)
+    nDummy = 7 if nXS < 7 else nXS
+    iVMR = np.delete(np.arange(nDummy+1), iBroad)
+    xsVMR = xsVMR[:, iVMR].T
+    dictKeys.append('vmrXS')
+    tempList.append(xsVMR)
+  # endif doXS
+
   for iKey, temp in enumerate(tempList):
     outDict[dictKeys[iKey]] = temp.astype(float)
 
