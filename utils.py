@@ -17,11 +17,12 @@ def log(*message):
   """
   import inspect
 
-  (frame, filename, line_number, function_name, lines, index) = \
-   inspect.getouterframes(inspect.currentframe())[-1]
+  frame = inspect.getouterframes(inspect.currentframe())
+  (dum, script, topLineNum, dum, dum, dum) = frame[-1]
+  (dum, script, funcLineNum, func, dum, dum) = frame[-2]
 
-  outStr = '***\nIn %s:%d\n%s\n***' % \
-    (os.path.basename(filename), line_number, ' '.join(message))
+  outStr = '***\nIn %s (%s()), Line %d\n%s\n***' % \
+    (script, func, funcLineNum, ' '.join(message))
   print(outStr)
 # end log()
 
