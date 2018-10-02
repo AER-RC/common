@@ -39,7 +39,7 @@ class constants():
   # end mks2cgs
 # end constants
 
-def readTAPE7(inFile):
+def readTAPE7(inFile, header=True):
   """
   Read in a single TAPE7 (LBLRTM profile/layer amounts as calculated 
   by LBLATM subroutine) and return parameters in dictionary
@@ -73,6 +73,10 @@ def readTAPE7(inFile):
         layer (nLayers)
       vmr: float array, mixing ratio for each gas at each layer 
         (nMol-1 x nLayer; the -1 is for the broadening density)
+
+  Keywords
+    header -- boolean, does the TAPE7 have the traditional comment 
+      at the beginning (starts with "$")
   """
 
   def stringSlice(inStr, idxArr):
@@ -89,14 +93,16 @@ def readTAPE7(inFile):
   # end stringSlice()
 
   # skip header of TAPE7, keep everything else
-  datT7 = open(inFile).read().splitlines()[1:]
+  datT7 = open(inFile).read().splitlines()
+  if header: datT7 = datT7[1:]
+
   record21 = datT7[0]
   profile = datT7[1:]
 
   iForm = int(stringSlice(record21, np.array([1])))
   nLay = int(stringSlice(record21, np.array([2, 5])))
   nMol = int(stringSlice(record21, np.array([5, 10])))
-  secnto = float(stringSlice(record21, np.array([10, 20])))
+  secnto = float(stringSlice(record21, np.array([10, 19])))
   h1 = float(stringSlice(record21, np.array([40, 48])))
   h2 = float(stringSlice(record21, np.array([52, 60])))
   sza = float(stringSlice(record21, np.array([65, 73])))
