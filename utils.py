@@ -26,7 +26,7 @@ def log(*message):
   print(outStr)
 # end log()
 
-def spawn(cmd):
+def spawn(cmd, outSplit=True):
   """
   Simplifies the call to a shell command in a Python session
 
@@ -39,13 +39,20 @@ def spawn(cmd):
   Input:
     cmd -- a simple string that would be used at the Unix command line 
 
+  Keywords:
+    outSplit -- boolean, string-split (space-delimiter) the standard 
+      output 
+
   Returns:
     stOut, stErr -- lists of standard output and standard error
   """
 
   call = sub.Popen(cmd, shell=True, stdout=sub.PIPE, stderr=sub.PIPE)
   callout, callerr = call.communicate()
-  stOut = callout.split()
+  if outSplit:
+    stOut = callout.split()
+  else:
+    stOut = callout
 
   return stOut, callerr
 # end spawn()
