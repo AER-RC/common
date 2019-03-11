@@ -15,6 +15,7 @@ class constants():
     self.c = 2.99792458e8 # speed of light, vaccum
     self.SB = 5.67051e-8 # Stefan-Boltzman (Wm-2K-4)
     self.sPerDay = 60 * 60 * 24 # seconds per day
+    self.Rydberg = 8.31 # J mol-1 K-1
 
     # wet and dry masses are from a KCP script check_wtot2.pro
     # they were used for RFMIP layer density calculations since we 
