@@ -245,14 +245,14 @@ def readTAPE28(inFile, nSkip=52):
 
 def readTAPE27(inFile, nSkip=52):
   """
-  Read in a single TAPE27 (LBLRTM radiance output file)
+  Read in a single TAPE27 (LBLRTM radiance ASCII output file)
   and return spectrum in dictionary
 
   Call
     outDict = readTAPE27(inFile)
 
   Input
-    inFile -- string, path to TAPE28 file
+    inFile -- string, path to TAPE27 file
 
   Output
     outDict -- dictionary with wavenumber and brightness_temperature
@@ -265,7 +265,7 @@ def readTAPE27(inFile, nSkip=52):
   # very, very simple function -- maybe just easier to use np.loadtxt
   # directly
   waveNum, rad = np.loadtxt(inFile, unpack=True, skiprows=nSkip)
-  outDict = {'wavenumber': waveNum , 'brightness_temperature': rad, \
+  outDict = {'wavenumber': waveNum , 'radiance': rad, \
     'units': '(W cm-2 sr-1)/cm-1'}
 
   return outDict
@@ -513,7 +513,7 @@ def rad2BT(inWN, inRad):
   """
 
   # convert from standard RU to mW m-2 sr-1 / cm-1
-  inRad /= 1e-7
+  #rad = inRad / 1e-7
 
   num = 1.4387752 * inWN
   denom = np.log( (1.191042e-5 * inWN**3 / inRad) + 1 )
@@ -557,12 +557,14 @@ def wvAmtTAPE6(inTAPE6):
   """
 
   dat = open(inTAPE6).read().splitlines()
+  search = '%-55s' % ('0')
+  search += 'ACCUMULATED MOLECULAR AMOUNTS FOR TOTAL PATH'
   for iLine, line in enumerate(dat):
-    if 'ACCUMULATED' in line:
+    if search in line:
       wvLayAmt = float(dat[iLine+1][57:70])
     else:
       continue
-    # endif ACCUMULATED
+    # endif search
 
     # break out of the loop as soon after first ACCUMULATED line
     # (otherwise we will grab other molecule densities)
