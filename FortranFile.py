@@ -9,9 +9,9 @@ class FortranFile:
 
     def __init__(self,fileName,write=False,network=False):
         if write:
-            self.file=file(fileName,'wb')
+            self.file=open(fileName,'wb')
         else:
-            self.file=file(fileName,'rb')
+            self.file=open(fileName,'rb')
 
         self.write=write
     
