@@ -500,6 +500,195 @@ def radsumRead(inFile):
   return outDict
 # end radsumRead()
 
+def readRRTM(inFile):
+  """
+  Read RRTM input and return dictionary of parameters (pressure, up 
+  flux, diffuse down flux, direct down flux, total down flux, net 
+  flux, and heating rate 
+
+  Inputs
+    inFile -- str, OUTPUT_RRTM file (output from RRTM run)
+
+  Outputs
+    outDict -- dictionary with keys (values are nLev x nBand float 
+      arrays):
+
+      pressure [mbar]
+      up flux [W/m2]
+      diffuse down flux [W/m2]
+      direct down flux [W/m2]
+      total down flux [W/m2]
+      net flux [W/m2]
+
+      also contains corresponding broadband arrays (BB is appended)
+  """
+
+  dat = open(inFile).read().splitlines()
+
+  # initialize parameter lists
+  bandWN1, bandWN2 = [], []
+  up, diffuse, direct, down, net, hr = \
+    [], [], [], [], [], []
+  pBand, upBand, difBand, dirBand, downBand, netBand, hrBand = \
+    [], [], [], [], [], [], []
+
+  for line in dat:
+    if len(line) == 0 or len(line) == 1: continue
+    split = line.split()
+
+    # end of file (don't need anything after this string)
+    if split[0] == 'Modules': break
+
+    if split[0] == 'Wavenumbers:':
+      # band header
+      bandWN1.append(float(split[1]))
+      bandWN2.append(float(split[3]))
+
+      # re-initiate this dictionary for every band
+      bandDict = {}
+      continue
+    # endif band header
+
+    if len(split) == 8:
+      # extract fluxes for all levels in a given band
+      pBand.append(float(split[1]))
+      upBand.append(float(split[2]))
+      difBand.append(float(split[3]))
+      dirBand.append(float(split[4]))
+      downBand.append(float(split[5]))
+      netBand.append(float(split[6]))
+      hrBand.append(float(split[7]))
+    # endif flux extract
+
+    if split[0] == '0':
+      # surface-level fluxes => end of band
+      # save band fluxes
+      up.append(upBand)
+      diffuse.append(difBand)
+      direct.append(dirBand)
+      down.append(downBand)
+      net.append(netBand)
+      hr.append(hrBand)
+      pressure = pBand
+
+      # re-initialize flux/hr lists
+      pBand, upBand, difBand, dirBand, downBand, netBand, hrBand = \
+        [], [], [], [], [], [], []
+    # endif surface
+  # end dat loop
+
+  up = np.array(up)
+  direct = np.array(direct)
+  diffuse = np.array(diffuse)
+  down = np.array(down)
+  net = np.array(net)
+  hr = np.array(hr)
+
+  # separate output into by-band and broadband arrays
+  # broadband is first in the OUTPUT_RRTM files
+  outDict = {'pressure': np.array(pressure), \
+    'up': up[1:,:], 'upBB': up[0,:], \
+    'direct': direct[1:,:], 'directBB': direct[0,:], \
+    'diffuse': diffuse[1:,:], 'diffuseBB': diffuse[0,:], \
+    'down': down[1:,:], 'downBB': down[0,:], \
+    'net': net[1:,:], 'netBB': net[0,:], \
+    'heating_rate': hr[1:,:], 'heating_rate_BB': hr[0,:], \
+    'band_lims': np.array([bandWN1[1:], bandWN2[1:]]).T, \
+    'band_lims_BB': np.array([bandWN1[0], bandWN2[0]])}
+
+  return outDict
+# end readRRTM()
+
+def readXS(inFile, speciesXS):
+  """
+  Read in the absorption coefficients from HITRAN .xsc files.
+
+  Probably can eventually add some flexibility here for AER LBLRTM 
+  XS files
+
+  Input
+    inFile -- string, HITRAN .xsc file (e.g., CCl4_IR00.xsc)
+      eventually: AER xs file (e.g., xs/CCL4) as well
+    speciesXS -- string, name of species that is being processed 
+      (HITRAN "Common Name" convention, e.g., CFC-12, HCFC-22, etc.
+       see /nas/project/rc_static/line_files/line_parameters_HITRAN/
+       hitran2012/IR-XSect/IRCrossSection_Readme.pdf)
+
+  Output
+    eh...working on this. originally thought they'd be float arrays 
+    but we may need dictionaries because of different sizes of spectra
+
+    outWN -- float array, wavenumbers for spectrum (1-D)
+    outK -- float array, absorption coefficient spectrum 
+      dimensions for both are determined from the number of P/T 
+      combinations (a proxy for this can be the number of headers in 
+      the file) and the number of spectral points (which is 
+  """
+
+  nBlocks = 0
+  outWN, outK = {}, {}
+
+  dat = open(inFile).read().splitlines()
+  for line in dat:
+    split = line.split()
+
+    if speciesXS in line:
+      # every header has the species name in it
+      # data blocks only have absorption coefficients
+      nBlocks += 1
+
+      # when we get to a header, we have to store the previous 
+      # data block (key should exist by now because it's created 
+      # from the header)
+      if len(outWN.keys()) != 0: outK[key] = np.array(kArr)
+
+      wn1 = float(split[1])
+      wn2 = float(split[2])
+      nPoints = int(split[3])
+      temperature = '%7.2f' % float(split[4])
+      pressure = '%6.2f' % float(split[5])
+      specRes = (wn2-wn1)/(nPoints-1)
+      wnArr = wn1 + np.arange(nPoints) * specRes
+      wn1 = '%10.4E' % wn1
+      wn2 = '%10.4E' % wn2
+      key = '%s/%s/%s/%s' % \
+        (wn1.strip(), wn2.strip(), temperature.strip(), pressure.strip())
+      key = key.strip()
+
+      outWN[key] = wnArr
+      kArr = []
+    else:
+      # kArr should have been initialized in header processing
+      # concatenate (NOT append) to it
+      try:
+        kList = [float(k) for k in split]
+        kArr += kList
+      except:
+        print('%s may not be the correct species for %s' % \
+          (speciesXS, inFile))
+        sys.exit(1)
+      # end trying
+    # endif species check (header)
+  # end data loop
+
+  # save the last data block
+  outK[key] = np.array(kArr)
+
+  # i suspect that (at least in H16) that sometimes zeroes are used 
+  # as fill values on the final line such that the number of 
+  # absorption coefficients is not consistent with the number of 
+  # spectral points as specified in the header (i ran into this issue
+  # with H16 CCl4)
+  outK[key] = outK[key][:outWN[key].size]
+
+  if len(outWN.keys()) == 0:
+    print('%s not found in %s' % (speciesXS, inFile))
+    return {}, {}
+  # endif headers
+
+  return outWN, outK
+# end readXS()
+
 def rad2BT(inWN, inRad):
   """
   Radiance to Brightness Temperature conversion courtesy of 
