@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys
+import os, sys, glob
 import numpy as np
 
 sys.path.append('common')
@@ -24,18 +24,18 @@ class submodules():
     if compiler not in ['ifort', 'gfortran', 'pgf90']:
       sys.exit('{} is not a supported compiler.'.format(compiler))
 
-    iniFile = args.config_file
+    iniFile = inArgs['ini']
     if iniFile is not None: utils.file_check(iniFile)
 
     if lnfl:
-      lnflDir = args.lnfl_path; utils.file_check(lnflDir)
+      lnflDir = inArgs['lnfl_path']; utils.file_check(lnflDir)
 
     if lbl:
-      lblDir = args.lblrtm_path; utils.file_check(lblDir)
+      lblDir = inArgs['lblrtm_path']; utils.file_check(lblDir)
 
     # we do not expect the line file to exist now that it is no
     # longer a submodule
-    if lines: linesDir = args.lines_path
+    if lines: linesDir = inArgs['lines_path']
 
     self.compiler = str(compiler)
     self.iniFile = None if iniFile is None else str(iniFile)
@@ -48,13 +48,17 @@ class submodules():
       self.modelDir = str(lnflDir)
       self.modelStr = 'LNFL'
       self.doLNFL = True
+      self.doLBL = False
+      self.lines = False
       self.precision = 'sgl'
       self.makeStr = 'make_lnfl'
       self.pathStr = 'lnfl_path'
     elif lbl:
       self.modelDir = str(lblDir)
       self.modelStr = 'LBLRTM'
+      self.doLNFL = False
       self.doLBL = True
+      self.lines = False
       self.precision = 'dbl'
       self.makeStr = 'make_lblrtm'
       self.pathStr = 'lbl_path'
@@ -62,6 +66,8 @@ class submodules():
       self.modelDir = str(linesDir)
       self.pathStr = ['tape1_path', 'tape2_path', 'extra_params', \
         'xs_path', 'fscdxs']
+      self.doLNFL = False
+      self.doLBL = False
       self.lines = True
       self.zRecID = args.record_id
     else:
@@ -178,6 +184,16 @@ class submodules():
     print('Building {}'.format(self.modelStr))
     status = sub.call(['make', '-f', self.makeStr, cmd])
     if status != 0: sys.exit('{} not built'.format(self.modelStr))
+
+    modStr = '{}/{}/{}_*_{}_{}_{}'.format(
+      self.topDir, self.modelDir, self.modelStr.lower(), \
+      self.opSys, self.compStr.lower(), self.precision)
+    modExe = glob.glob(modStr)[0]
+
+    if self.doLNFL: 
+      self.pathLNFL = os.path.join(self.modelDir, modExe)
+    if self.doLBL:
+      self.pathLBL = os.path.join(self.modelDir, modExe)
     os.chdir(cwd)
 
     return self
@@ -188,8 +204,6 @@ class submodules():
     Replace paths in ABSCO_compute.py configuration file with the paths
     established in this class
     """
-
-    import glob
 
     if self.iniFile is None:
       sys.exit('No configuration file specified, returning')
