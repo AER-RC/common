@@ -69,7 +69,7 @@ class submodules():
       self.doLNFL = False
       self.doLBL = False
       self.lines = True
-      self.zRecID = args.record_id
+      self.zRecID = inArgs['record_id']
     else:
       sys.exit('No model build chosen')
     # endif model
