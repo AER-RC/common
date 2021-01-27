@@ -18,9 +18,9 @@ class constants():
     self.Rydberg = 8.31 # J mol-1 K-1
 
     # wet and dry masses are from a KCP script check_wtot2.pro
-    # they were used for RFMIP layer density calculations since we 
+    # they were used for RFMIP layer density calculations since we
     # wanted to use hydrostatics and not the ideal gas law
-    self.mH2O = 1.8016e-2 
+    self.mH2O = 1.8016e-2
     self.mDry = 2.8964e-2
 
     if cgs: self.mks2cgs()
@@ -42,7 +42,7 @@ class constants():
 
 def readTAPE7(inFile, header=True):
   """
-  Read in a single TAPE7 (LBLRTM profile/layer amounts as calculated 
+  Read in a single TAPE7 (LBLRTM profile/layer amounts as calculated
   by LBLATM subroutine) and return parameters in dictionary
 
   Call
@@ -72,11 +72,11 @@ def readTAPE7(inFile, header=True):
 
       scale_factor_lay: float array, secant scaling factor for each
         layer (nLayers)
-      vmr: float array, mixing ratio for each gas at each layer 
+      vmr: float array, mixing ratio for each gas at each layer
         (nMol-1 x nLayer; the -1 is for the broadening density)
 
   Keywords
-    header -- boolean, does the TAPE7 have the traditional comment 
+    header -- boolean, does the TAPE7 have the traditional comment
       at the beginning (starts with "$")
   """
 
@@ -108,8 +108,8 @@ def readTAPE7(inFile, header=True):
   h2 = float(stringSlice(record21, np.array([52, 60])))
   sza = float(stringSlice(record21, np.array([65, 73])))
 
-  # the number of "layer lines" is dependent on the number of 
-  # molecules. the convention is dictated by Record 2.1.2 in the 
+  # the number of "layer lines" is dependent on the number of
+  # molecules. the convention is dictated by Record 2.1.2 in the
   # LBLRTM instructions HTML file (8 molecules per line)
   # nLayLines = P/T line + Mixing Ratios lines (records 2.1.1 + 2.1.2)
   if nMol <= 7:
@@ -120,12 +120,12 @@ def readTAPE7(inFile, header=True):
   # endif nMol
 
   # for the P/H/T line
-  nLayLines += 1 
+  nLayLines += 1
 
   # how the data are read (i.e., array slicing) depends on iForm
   # this is record 2.1.1
   if iForm == 0:
-    ipLay = np.array([10])
+    ipLay = np.array([0, 10])
     itLay = np.array([10, 21])
     iSecant = np.array([21, 30])
     iType = np.array([30, 33])
@@ -137,7 +137,7 @@ def readTAPE7(inFile, header=True):
     ipLev2 = np.array([65, 73])
     itLev2 = np.array([73, 80])
   else:
-    ipLay = np.array([15])
+    ipLay = np.array([0, 15])
     itLay = np.array([15, 25])
     iSecant = np.array([25, 35])
     iType = np.array([35, 38])
@@ -285,7 +285,7 @@ def readBinary(inFile, double=True):
 
   Output
     outWN -- float array, wavenumbers spanning spectrum
-    param -- float array of ODs, radiances, fluxes, transmittances, 
+    param -- float array of ODs, radiances, fluxes, transmittances,
       or whatever other paramter is extracted from inFile
 
   Keywords
@@ -317,7 +317,7 @@ def readBinary(inFile, double=True):
     abscoArr = np.array(abscoArr)
 
     # don't need any of the rest of the "panel header" garbage
-    # but we do need to make a wavenumber array associated w/ 
+    # but we do need to make a wavenumber array associated w/
     # absorption coefficients
     waveNum = np.arange(wnDat[0], wnDat[1]+wnDat[2], wnDat[2])
 
@@ -336,12 +336,12 @@ def readBinary(inFile, double=True):
 
 def tempIDL(inFile, fType=0, double=True):
   """
-  Read in binary TAPE files (inFile), save data to IDL save files, 
+  Read in binary TAPE files (inFile), save data to IDL save files,
   and then read them with Python for plotting. this is pretty time-
   consuming
 
-  This is a temporary function until I figure out how to read in 
-  FORTRAN binary files in Python (looks like it can be done -- 
+  This is a temporary function until I figure out how to read in
+  FORTRAN binary files in Python (looks like it can be done --
   https://stackoverflow.com/questions/37534220/python-read-fortran-binary-file)
 
   Input
@@ -354,7 +354,7 @@ def tempIDL(inFile, fType=0, double=True):
     fType -- int, file type (radiance, transmittance, etc.; see doc in
       /project/rc/rc2/mshep/idl/patbrown/read_lbl_file_dbl.pro)
     double -- boolean, is inFile in double precision? defaults to yes
-  
+
   """
 
   from scipy.io.idl import readsav
@@ -362,7 +362,7 @@ def tempIDL(inFile, fType=0, double=True):
 
   # write_save_file.pro is in this Git repo:
   # https://lex-gitlab.aer.com/rpernak/common_modules
-  # and is considered, along with the RC_utils.py and utils.py 
+  # and is considered, along with the RC_utils.py and utils.py
   # modules, part of the RC common library
   proFile = 'write_save_file.pro'
   #if not os.path.exists(proFile):
@@ -392,7 +392,7 @@ def tempIDL(inFile, fType=0, double=True):
 
 def radsumRead(inFile):
   """
-  Read a single RADSUM output file and return data for a given level 
+  Read a single RADSUM output file and return data for a given level
   as a dictionary to be used in radsumPlot()
 
   Call
@@ -402,19 +402,19 @@ def radsumRead(inFile):
     inFile -- string, path to RADSUM output file
 
   Output
-    outDict -- dictionary with the following keys 
+    outDict -- dictionary with the following keys
       (with float list values):
 
-      up_flux: upwelling flux (W/m2) as a function of wavenumber 
+      up_flux: upwelling flux (W/m2) as a function of wavenumber
         and level (nLevel x nWavenumber array)
-      down_flux: downwelling flux (W/m2) as a function of wavenumber 
+      down_flux: downwelling flux (W/m2) as a function of wavenumber
         and level (nLevel x nWavenumber array)
       net_flux: net flux (W/m2) as a function of wavenumber and level
         (nLevel x nWavenumber array)
-      heat_rate: heating rate (K/day) as a function of wavenumber 
+      heat_rate: heating rate (K/day) as a function of wavenumber
         and level (nLevel x nWavenumber array)
       wavenumber: spectral points (cm-1) vector (1 x nWavenumber)
-      level_pressure: pressure at layer boundaries 
+      level_pressure: pressure at layer boundaries
         (nLevel-element array)
 
   Keywords
@@ -439,9 +439,9 @@ def radsumRead(inFile):
       # header processing -- only wanna extract wavenumber
       if len(split) > 0:
         if split[0] == 'WAVENUMBER':
-          # every WAVENUMBER string occurrence implies the start of 
-          # a new block of RADSUM output, which we break up into 
-          # 1 x nLev vectors for each parameter, then append to 
+          # every WAVENUMBER string occurrence implies the start of
+          # a new block of RADSUM output, which we break up into
+          # 1 x nLev vectors for each parameter, then append to
           # *All lists that eventually become
           # (nWavenumber x nLev) arrays of output
           if 'pLev' in locals():
@@ -502,15 +502,15 @@ def radsumRead(inFile):
 
 def readRRTM(inFile):
   """
-  Read RRTM input and return dictionary of parameters (pressure, up 
-  flux, diffuse down flux, direct down flux, total down flux, net 
-  flux, and heating rate 
+  Read RRTM input and return dictionary of parameters (pressure, up
+  flux, diffuse down flux, direct down flux, total down flux, net
+  flux, and heating rate
 
   Inputs
     inFile -- str, OUTPUT_RRTM file (output from RRTM run)
 
   Outputs
-    outDict -- dictionary with keys (values are nLev x nBand float 
+    outDict -- dictionary with keys (values are nLev x nBand float
       arrays):
 
       pressure [mbar]
@@ -603,26 +603,26 @@ def readXS(inFile, speciesXS):
   """
   Read in the absorption coefficients from HITRAN .xsc files.
 
-  Probably can eventually add some flexibility here for AER LBLRTM 
+  Probably can eventually add some flexibility here for AER LBLRTM
   XS files
 
   Input
     inFile -- string, HITRAN .xsc file (e.g., CCl4_IR00.xsc)
       eventually: AER xs file (e.g., xs/CCL4) as well
-    speciesXS -- string, name of species that is being processed 
+    speciesXS -- string, name of species that is being processed
       (HITRAN "Common Name" convention, e.g., CFC-12, HCFC-22, etc.
        see /nas/project/rc_static/line_files/line_parameters_HITRAN/
        hitran2012/IR-XSect/IRCrossSection_Readme.pdf)
 
   Output
-    eh...working on this. originally thought they'd be float arrays 
+    eh...working on this. originally thought they'd be float arrays
     but we may need dictionaries because of different sizes of spectra
 
     outWN -- float array, wavenumbers for spectrum (1-D)
-    outK -- float array, absorption coefficient spectrum 
-      dimensions for both are determined from the number of P/T 
-      combinations (a proxy for this can be the number of headers in 
-      the file) and the number of spectral points (which is 
+    outK -- float array, absorption coefficient spectrum
+      dimensions for both are determined from the number of P/T
+      combinations (a proxy for this can be the number of headers in
+      the file) and the number of spectral points (which is
   """
 
   nBlocks = 0
@@ -637,8 +637,8 @@ def readXS(inFile, speciesXS):
       # data blocks only have absorption coefficients
       nBlocks += 1
 
-      # when we get to a header, we have to store the previous 
-      # data block (key should exist by now because it's created 
+      # when we get to a header, we have to store the previous
+      # data block (key should exist by now because it's created
       # from the header)
       if len(outWN.keys()) != 0: outK[key] = np.array(kArr)
 
@@ -674,9 +674,9 @@ def readXS(inFile, speciesXS):
   # save the last data block
   outK[key] = np.array(kArr)
 
-  # i suspect that (at least in H16) that sometimes zeroes are used 
-  # as fill values on the final line such that the number of 
-  # absorption coefficients is not consistent with the number of 
+  # i suspect that (at least in H16) that sometimes zeroes are used
+  # as fill values on the final line such that the number of
+  # absorption coefficients is not consistent with the number of
   # spectral points as specified in the header (i ran into this issue
   # with H16 CCl4)
   outK[key] = outK[key][:outWN[key].size]
@@ -691,7 +691,7 @@ def readXS(inFile, speciesXS):
 
 def rad2BT(inWN, inRad):
   """
-  Radiance to Brightness Temperature conversion courtesy of 
+  Radiance to Brightness Temperature conversion courtesy of
   https://ncc.nesdis.noaa.gov/data/planck.html
 
   Input
@@ -714,10 +714,10 @@ def rad2BT(inWN, inRad):
 
 def colAmt2PWV(amount):
   """
-  Convert accumulated molecular amounts for total path (mol/cm2) in 
+  Convert accumulated molecular amounts for total path (mol/cm2) in
   TAPE6 to precipitable water vapor (PWV, cm)
 
-  The conversion formula was gathered from an email with Vivienne 
+  The conversion formula was gathered from an email with Vivienne
   Payne ("update to conversion factor for H2O") to the AER RC email
   group on 24-Jul-2006:
 
@@ -729,11 +729,11 @@ def colAmt2PWV(amount):
     pwv = colAmt2PWV(amount)
 
   Input
-    amount -- float array, column amounts for a given molecule 
+    amount -- float array, column amounts for a given molecule
       (mol/cm2)
 
   Output
-    pwv -- float array, corresponding precipitable water vapor 
+    pwv -- float array, corresponding precipitable water vapor
       (cm)
   """
 
@@ -742,7 +742,7 @@ def colAmt2PWV(amount):
 
 def wvAmtTAPE6(inTAPE6):
   """
-  Extract water vapor accumulated (over entire column) amount from 
+  Extract water vapor accumulated (over entire column) amount from
   inTAPE6
   """
 
@@ -759,7 +759,7 @@ def wvAmtTAPE6(inTAPE6):
     # break out of the loop as soon after first ACCUMULATED line
     # (otherwise we will grab other molecule densities)
     break
-  # end 
+  # end
 
   return wvLayAmt
 # end wvAmtTAPE6
@@ -781,4 +781,3 @@ def fluxToHR(flux):
 
   return (np.diff(flux, axis=0) / conObj.SB)**(1/4.) / conObj.sPerDay
 # end fluxToHR()
-
