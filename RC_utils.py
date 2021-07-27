@@ -125,7 +125,7 @@ def readTAPE7(inFile, header=True):
   # how the data are read (i.e., array slicing) depends on iForm
   # this is record 2.1.1
   if iForm == 0:
-    ipLay = np.array([10])
+    ipLay = np.array([0, 10])
     itLay = np.array([10, 21])
     iSecant = np.array([21, 30])
     iType = np.array([30, 33])
@@ -137,7 +137,7 @@ def readTAPE7(inFile, header=True):
     ipLev2 = np.array([65, 73])
     itLev2 = np.array([73, 80])
   else:
-    ipLay = np.array([15])
+    ipLay = np.array([0, 15])
     itLay = np.array([15, 25])
     iSecant = np.array([25, 35])
     iType = np.array([35, 38])
