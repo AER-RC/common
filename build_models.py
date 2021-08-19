@@ -42,6 +42,7 @@ class submodules():
     self.lines = False
 
     self.topDir = str(inArgs['top_dir'])
+    utils.file_check(self.topDir)
 
     # LNFL: always single precision, LBLRTM: always double
     if lnfl:
@@ -190,7 +191,7 @@ class submodules():
       self.opSys, self.compStr.lower(), self.precision)
     modExe = glob.glob(modStr)[0]
 
-    if self.doLNFL: 
+    if self.doLNFL:
       self.pathLNFL = os.path.join(self.modelDir, modExe)
     if self.doLBL:
       self.pathLBL = os.path.join(self.modelDir, modExe)
