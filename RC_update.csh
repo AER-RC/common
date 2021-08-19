@@ -114,6 +114,7 @@ endif # replace/update
 
 # rebuild executables
 cd $LOCAL/$CNTNM/build
+rm ../cntnm_v*
 gmake -f make_cntnm linuxPGIdbl
 gmake -f make_cntnm linuxPGIsgl
 gmake -f make_cntnm linuxINTELdbl
@@ -121,6 +122,7 @@ gmake -f make_cntnm linuxINTELsgl
 rm -rf *.mod cntnm_v*
 
 cd $LOCAL/$LBLRTM/build
+rm ../lblrtm_v*
 gmake -f make_lblrtm linuxPGIdbl
 gmake -f make_lblrtm linuxPGIsgl
 gmake -f make_lblrtm linuxINTELdbl
@@ -128,7 +130,7 @@ gmake -f make_lblrtm linuxINTELsgl
 rm -rf *.mod lblrtm_v*
 
 cd $LOCAL/$LNFL/build
-rm -rf ../lnfl_v*
+rm ../lnfl_v*
 #gmake -f make_lnfl linuxPGIdbl
 gmake -f make_lnfl linuxPGIsgl
 gmake -f make_lnfl linuxINTELsgl
@@ -148,6 +150,7 @@ cd $LOCAL/$MONO/build
 # don't know what IBM machine to use, so these builds won't work
 #gmake -f make_monortm aixIBMdbl
 #gmake -f make_monortm aixIBMsgl
+rm ../monortm_v*
 gmake -f make_monortm linuxPGIsgl
 gmake -f make_monortm linuxPGIdbl
 gmake -f make_monortm linuxINTELsgl
@@ -155,6 +158,7 @@ gmake -f make_monortm linuxINTELdbl
 rm -rf monortm_v*
 
 cd $LOCAL/$RS/build
+rm ../radsum_v*
 gmake -f make_radsum linuxPGIdbl
 gmake -f make_radsum linuxINTELdbl
 rm -rf radsum_v*
