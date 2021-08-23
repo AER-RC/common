@@ -1,5 +1,8 @@
 #!/bin/tcsh
 
+# for implementation, see local version build directions in 
+# https://github.com/AER-RC/LBLRTM/wiki/LBLRTM-New-Release-Procedure
+
 date
 
 # 1 command line (CLI) argument necessary
