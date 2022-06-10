@@ -281,7 +281,7 @@ def readTape7(fName, sList=False):
   return ll
 # end readTape7
 
-def readTape12(fileName, double=False, fType=0):
+def readTape12(fileName, double=False, fType=0, output_variables_per_panel=1):
   """
   Read in a TAPE12 (or similar TAPE10-13) LBLRTM output binary file
   and return spectrum
@@ -317,7 +317,7 @@ def readTape12(fileName, double=False, fType=0):
       tested with this function
   """
 
-  def readLBLPanel(ffObj, pHeaderForm):
+  def readLBLPanel(ffObj, pHeaderForm, output_variables_per_panel = 1):
     """
     Read in a single panel
 
@@ -341,38 +341,31 @@ def readTape12(fileName, double=False, fType=0):
     # initialization of variables that change with panel
     OK = True;
     outWN = []; outParam = []
-    ctr = 1
+    outParam = [[] for _ in range(output_variables_per_panel)]
     while OK:
       buff = fortranFile.getRecord()
 
-      # grab binary data if valid buffer and not a panel header
-      #if len(buff) == struct.calcsize(lfmt): continue
       while buff is not None and len(buff) != struct.calcsize(lfmt):
         buff = fortranFile.getRecord()
-
       # end while buff
       if buff:
         try:
           # read panel header and underlying data
           (v1, v2, dv, nPanel) = struct.unpack(lfmt, buff)
-          data = fortranFile.readDoubleVector() if double else \
-            fortranFile.readFloatVector()
-          #print len(data), ctr
-          ctr += 1
-
-          # concatenate (NOT append) onto output
-          # for now, this is just radiance -- looks like other
-          # parameters like transmittances are in other panels
-          outParam += data
-
+          logger.info('v1: %f v2: %f, dv: %f num: %d', v1, v2, dv, nPanel)
+          for i in range(output_variables_per_panel):
+            data = fortranFile.readDoubleVector() if double else \
+                fortranFile.readFloatVector()
+            # concatenate (NOT append) onto output
+            outParam[i] += data
           # concatenate wavenumber array (without numpy) based 
           # on spectral resolution and starting wavenumber
           outWN += \
             map(lambda x:v1 + x * dv, range(len(data)))
         except (KeyboardInterrupt, SystemExit):
           raise
-        except:
-          #print 'Data could not be read, file may be corrupted'
+        except Exception as e:
+          logger.error('Data could not be read, file may be corrupted')
           OK = False
       else:
         # end of panel
@@ -385,24 +378,21 @@ def readTape12(fileName, double=False, fType=0):
 
   # main readTape12()
   iFormat = 'l'
-  if struct.calcsize('l') == 8:iFormat = 'i'
+  if struct.calcsize('l') == 8:iFormat = 'q'
 
   # instantiate FortranFile object
   fortranFile = FortranFile.FortranFile(fileName)
 
   # read file header
   data = fortranFile.getRecord()
+  logger.info("TOP HEADER %s", str(data))
 
   # format for each panel header
-  if double: lfmt = 'dddl'
-  else: lfmt = 'ddf%s' % iFormat
+  if double: lfmt = 'dddq'
+  else: lfmt = 'ddd%s' % iFormat
+  logger.info('header struct format %s', lfmt)
 
-  waveNumbers, output = readLBLPanel(fortranFile, lfmt)
-
-  # read file header
-  #waveNumbers, output = readLBLPanel(fortranFile, lfmt, header=False)
-  #print len(waveNumbers)
-  #waveNumbers, output = readLBLPanel(fortranFile, lfmt)
+  waveNumbers, output = readLBLPanel(fortranFile, lfmt, output_variables_per_panel=output_variables_per_panel)
 
   return np.array(waveNumbers), np.array(output)
 # end readTape12()
