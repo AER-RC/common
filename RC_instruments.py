@@ -102,7 +102,7 @@ def airsSRFInterpOverlap(srfCenter, srfWN, srf, modWN, \
   # indices for full overlap
   ifOverlap = []; iSRF = []
   for i, iOver in enumerate(icOverlap):
-    print '%d of %d' % (i, icOverlap.size)
+    print('{:d} of {:d}'.format(i, icOverlap.size))
     wnOver = srfWN[iOver, :]
 
     # grab LBL spectral points in the ROI
@@ -168,18 +168,18 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=IDXNPZ):
   # also should be in same directory as this module
   import RC_utils as RC
 
-  print 'Reading in AIRS SRF'
+  print('Reading in AIRS SRF')
   airsDict = srfAIRS()
   airsWN = airsDict['wavenumber']
   airsCenter = airsDict['center_line'][:, 0]
   airsSRF = airsDict['SRF']
 
-  print 'Reading in AIRS LBLRTM TAPE12'
+  print('Reading in AIRS LBLRTM TAPE12')
   lblWN, lblSpec = RC.readBinary(inTAPE12, double=True)
 
   if idxNPZ is None:
     # find line center overlap
-    print 'Indice file not set, running airsSRFInterpOverlap()'
+    print('Indice file not set, running airsSRFInterpOverlap()')
     lcOver, fullOver, interpSRF = \
       airsSRFInterpOverlap(airsCenter, airsWN, airsSRF, lblWN)
   else:
@@ -188,8 +188,8 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=IDXNPZ):
       sys.exit('Could not find %s, you may have to run %s again' % \
         (idxNPZ, 'airsSRFInterpOverlap()') )
 
-    print 'Loading %s' % idxNPZ
-    npzDat = np.load(idxNPZ)
+    print('Loading {}'.format(idxNPZ))
+    npzDat = np.load(idxNPZ, allow_pickle=True, encoding='bytes')
     lcOver = npzDat['center']
     fullOver = npzDat['full']
     interpSRF = npzDat['interp_srf']
@@ -197,10 +197,10 @@ def interpolateSRF(inTAPE12, outNPZ='temp.npz', idxNPZ=IDXNPZ):
 
   # for each matching center line, zoom in on the center +/- FWHM 
   # region of interest (ROI)
-  print 'Scaling AIRS SRF with LBLRTM radiances'
+  print('Scaling AIRS SRF with LBLRTM radiances')
   outRad = []
   for i, iOver in enumerate(lcOver):
-    print '%d of %d' % (i+1, lcOver.size)
+    print('{:d} of {:d}'.format(i+1, lcOver.size))
     iOverLBL = fullOver[i]
     tempSRF = interpSRF[i] * lblSpec[iOverLBL]
     outRad.append(sum(tempSRF))
