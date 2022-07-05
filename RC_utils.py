@@ -134,16 +134,21 @@ def readTAPE7(inFile, header=True, xs=False):
     # have to reassign some variables for XS
     profile = datT7[nLinesLBL-1:]
     nMol = int(profile[0].split()[0])
-    xsNames = profile[1].split()
+
+    # "record 3.7.1" is identical to record21 and redundant; skip XS
+    # header, XS names (variable number of lines), and "record 3.7.1"
+    # TO DO: have not tested nRec371 past nMol=8
+    nRec371 = nMol // 8 + 1
+    xsNames = ' '.join(profile[1:1+nRec371]).split()
 
     # 8th molecule is always the broadener (molecules and xs)
     xsNames[7] = 'broadener'
 
-    # line 3 is identical to record21 and redundant
-    profile = profile[3:]
+    profile = profile[2+nRec371:]
 
-    # TO DO: test robustness of this for XS
-    nLayLines = 2 if nMol <= 7 else np.ceil((nMol+1)/8.0)
+    # TO DO: test robustness of this and nRec371 for XS
+    nLayLines = 1 if nMol <= 7 else int(np.ceil((nMol+1)/8.0))
+    nLayLines += 1
   else:
     profile = datT7[1:nLinesLBL-1]
   # endif xs
@@ -233,13 +238,23 @@ def readTAPE7(inFile, header=True, xs=False):
 
   # make a list of all lists, loop through it, and convert all lists
   # to arrays of the proper type and stuff them into outDict
+  # TO DO: make outDict['densities'] its own dictionaries with
+  # LBL molecule names like we do for XS
   dictKeys = ['p_lay', 'T_lay', 'scale_factor_lay', 'type_lay', \
     'path_lay', 'alt_lev', 'p_lev', 'T_lev', 'densities', 'broadener']
   tempList = [pLay, tLay, scaleLay, typeLay, pathLay, altLev, \
     pLev, tLev, molDen, broadener]
   for iKey, temp in enumerate(tempList):
+    if iKey == 'densities' and xs: continue
     outDict[dictKeys[iKey]] = temp.astype(float)
 
+  if xs:
+    outDict['densities'] = {}
+
+    for iKey, key in enumerate(xsNames):
+      if iKey == 7: continue
+      outDict['densities'][key] = molDen[iKey].astype(float)
+  # endif xs
   return outDict
 # end readTAPE7
 
