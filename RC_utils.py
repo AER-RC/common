@@ -250,9 +250,9 @@ def readTAPE7(inFile, header=True, xs=False):
 
   if xs:
     outDict['densities'] = {}
+    xsNames.remove('broadener')
 
     for iKey, key in enumerate(xsNames):
-      if iKey == 7: continue
       outDict['densities'][key] = molDen[iKey].astype(float)
   # endif xs
   return outDict
