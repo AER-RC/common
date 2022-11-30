@@ -703,7 +703,7 @@ def rad2BT(inWN, inRad):
   """
 
   # convert from standard RU to mW m-2 sr-1 / cm-1
-  #rad = inRad / 1e-7
+  inRad = inRad / 1.0e-7
 
   num = 1.4387752 * inWN
   denom = np.log( (1.191042e-5 * inWN**3 / inRad) + 1 )
