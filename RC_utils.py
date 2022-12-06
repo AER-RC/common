@@ -141,8 +141,9 @@ def readTAPE7(inFile, header=True, xs=False):
     nRec371 = nMol // 8 + 1
     xsNames = ' '.join(profile[1:1+nRec371]).split()
 
-    # 8th molecule is always the broadener (molecules and xs)
-    xsNames[7] = 'broadener'
+    # "OTHER" xs is always the broadener (molecules and xs)
+    iBroad = xsNames.index('OTHER')
+    xsNames[iBroad] = 'broadener'
 
     profile = profile[2+nRec371:]
 
@@ -231,7 +232,9 @@ def readTAPE7(inFile, header=True, xs=False):
 
   # extract broadening density from molecule den and transpose density
   # so it is nMol x nLay
-  iBroad = 7
+  # molecule 8 is always the broadener (molecules and xs)
+  if not xs: iBroad = 7
+
   broadener = molDen[:, iBroad]
   iDen = np.delete(np.arange(nMol+1), iBroad)
   molDen = molDen[:, iDen].T
